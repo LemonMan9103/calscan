@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1050012405625",
+    "project_id": "calscan-34026",
+    "storage_bucket": "calscan-34026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1050012405625:android:013fa8885f36db609c29a8",
+        "android_client_info": {
+          "package_name": "com.uniza.calscan"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJAFL6hUW3jygEc7FUTvnhQLu1Yy7cKbg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,35 @@
+name: calscan
+description: "Esti - camera-assisted calorie estimation and meal tracking."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  camera: ^0.11.1
+  intl: ^0.19.0
+  fl_chart: ^0.70.2
+  firebase_core: ^3.11.0
+  firebase_auth: ^5.5.0
+  cloud_firestore: ^5.6.12
+  tflite_flutter: ^0.11.0
+  image: ^4.3.0
+  shared_preferences: ^2.5.4
+  google_mlkit_text_recognition: ^0.15.1
+  google_sign_in: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - lib/assets/best_float32.tflite
+    - lib/assets/food_lookup.json

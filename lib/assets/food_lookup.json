@@ -1,0 +1,1078 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Malaysian Food Calorie Lookup Table for Esti FYP",
+    "portion_multipliers": {
+      "S": 0.8,
+      "M": 1.0,
+      "L": 1.3
+    },
+    "notes": "Base calories are for a standard medium (M) serving. Cooking modifier is already factored into base_calories. Use portion_multiplier on top of base_calories.",
+    "archetypes": {
+      "grain_rice": {
+        "label": "Rice",
+        "options": [
+          {
+            "label": "1 scoop",
+            "multiplier": 0.5
+          },
+          {
+            "label": "1 cup",
+            "multiplier": 0.75
+          },
+          {
+            "label": "1 bowl",
+            "multiplier": 1.0
+          },
+          {
+            "label": "1.5 bowls",
+            "multiplier": 1.5
+          }
+        ],
+        "default": 2
+      },
+      "noodle_plate": {
+        "label": "Noodle / Plate dish",
+        "options": [
+          {
+            "label": "Half plate",
+            "multiplier": 0.7
+          },
+          {
+            "label": "1 plate",
+            "multiplier": 1.0
+          },
+          {
+            "label": "Large plate",
+            "multiplier": 1.4
+          }
+        ],
+        "default": 1
+      },
+      "pcs_chicken": {
+        "label": "Chicken / Fish piece",
+        "options": [
+          {
+            "label": "Small piece",
+            "multiplier": 0.7
+          },
+          {
+            "label": "1 piece",
+            "multiplier": 1.0
+          },
+          {
+            "label": "Large piece",
+            "multiplier": 1.4
+          }
+        ],
+        "default": 1
+      },
+      "pcs_egg": {
+        "label": "Eggs",
+        "options": [
+          {
+            "label": "1 egg",
+            "multiplier": 1.0
+          },
+          {
+            "label": "2 eggs",
+            "multiplier": 2.0
+          },
+          {
+            "label": "3 eggs",
+            "multiplier": 3.0
+          }
+        ],
+        "default": 0
+      },
+      "pcs_small": {
+        "label": "Small items / pcs",
+        "options": [
+          {
+            "label": "1 pc",
+            "multiplier": 1.0
+          },
+          {
+            "label": "2 pcs",
+            "multiplier": 2.0
+          },
+          {
+            "label": "3 pcs",
+            "multiplier": 3.0
+          }
+        ],
+        "default": 0
+      },
+      "satay_sticks": {
+        "label": "Satay sticks",
+        "options": [
+          {
+            "label": "3 sticks",
+            "multiplier": 0.6
+          },
+          {
+            "label": "5 sticks",
+            "multiplier": 1.0
+          },
+          {
+            "label": "7 sticks",
+            "multiplier": 1.4
+          },
+          {
+            "label": "10 sticks",
+            "multiplier": 2.0
+          }
+        ],
+        "default": 1
+      },
+      "slice_thin": {
+        "label": "Thin slices",
+        "options": [
+          {
+            "label": "2 thin slices",
+            "multiplier": 0.5
+          },
+          {
+            "label": "4 thin slices",
+            "multiplier": 1.0
+          },
+          {
+            "label": "6 thin slices",
+            "multiplier": 1.5
+          }
+        ],
+        "default": 1
+      },
+      "slice_bread": {
+        "label": "Bread / Toast",
+        "options": [
+          {
+            "label": "1 slice",
+            "multiplier": 0.6
+          },
+          {
+            "label": "2 slices",
+            "multiplier": 1.0
+          },
+          {
+            "label": "3 slices",
+            "multiplier": 1.5
+          }
+        ],
+        "default": 1
+      },
+      "slice_pizza": {
+        "label": "Pizza slices",
+        "options": [
+          {
+            "label": "1 slice",
+            "multiplier": 0.5
+          },
+          {
+            "label": "2 slices",
+            "multiplier": 1.0
+          },
+          {
+            "label": "3 slices",
+            "multiplier": 1.5
+          }
+        ],
+        "default": 1
+      },
+      "cup_drink": {
+        "label": "Cup / Drink",
+        "options": [
+          {
+            "label": "Small cup",
+            "multiplier": 0.7
+          },
+          {
+            "label": "1 cup",
+            "multiplier": 1.0
+          },
+          {
+            "label": "Large cup",
+            "multiplier": 1.4
+          }
+        ],
+        "default": 1
+      },
+      "cup_snack": {
+        "label": "Cup snack",
+        "options": [
+          {
+            "label": "Small cup",
+            "multiplier": 0.6
+          },
+          {
+            "label": "1 cup",
+            "multiplier": 1.0
+          },
+          {
+            "label": "Large cup",
+            "multiplier": 1.5
+          }
+        ],
+        "default": 1
+      },
+      "bowl_curry": {
+        "label": "Bowl / Curry",
+        "options": [
+          {
+            "label": "Small bowl",
+            "multiplier": 0.7
+          },
+          {
+            "label": "1 bowl",
+            "multiplier": 1.0
+          },
+          {
+            "label": "Large bowl",
+            "multiplier": 1.4
+          }
+        ],
+        "default": 1
+      },
+      "bowl_side": {
+        "label": "Side dish",
+        "options": [
+          {
+            "label": "Small serve",
+            "multiplier": 0.7
+          },
+          {
+            "label": "1 serve",
+            "multiplier": 1.0
+          },
+          {
+            "label": "Large serve",
+            "multiplier": 1.4
+          }
+        ],
+        "default": 1
+      },
+      "spoon_condiment": {
+        "label": "Condiment / Spoon",
+        "options": [
+          {
+            "label": "1 tsp",
+            "multiplier": 0.4
+          },
+          {
+            "label": "1 tbsp",
+            "multiplier": 1.0
+          },
+          {
+            "label": "2 tbsp",
+            "multiplier": 2.0
+          }
+        ],
+        "default": 1
+      },
+      "whole_meal": {
+        "label": "Whole item / serving",
+        "options": [
+          {
+            "label": "Half",
+            "multiplier": 0.5
+          },
+          {
+            "label": "1 serving",
+            "multiplier": 1.0
+          },
+          {
+            "label": "Large",
+            "multiplier": 1.4
+          }
+        ],
+        "default": 1
+      }
+    }
+  },
+  "foods": {
+    "Apam_Balik": {
+      "display_name": "Apam Balik",
+      "category": "snack",
+      "base_calories": 250,
+      "cooking_modifier": 1.1,
+      "description": "Malaysian pancake with peanut and sugar filling",
+      "protein_g": 6,
+      "carbs_g": 38,
+      "fat_g": 8,
+      "portion_labels": {
+        "S": "Half piece",
+        "M": "1 piece",
+        "L": "2 pieces"
+      },
+      "archetype": "pcs_small"
+    },
+    "Ayam_Bakar": {
+      "display_name": "Ayam Bakar",
+      "category": "component",
+      "base_calories": 220,
+      "cooking_modifier": 1.05,
+      "description": "Grilled chicken, moderately oily from marinade",
+      "protein_g": 25,
+      "carbs_g": 3,
+      "fat_g": 11,
+      "portion_labels": {
+        "S": "Small piece",
+        "M": "1 piece",
+        "L": "Large piece"
+      },
+      "archetype": "pcs_chicken"
+    },
+    "Ayam_Goreng": {
+      "display_name": "Ayam Goreng",
+      "category": "component",
+      "base_calories": 280,
+      "cooking_modifier": 1.25,
+      "description": "Fried chicken, deep fried",
+      "protein_g": 24,
+      "carbs_g": 8,
+      "fat_g": 16,
+      "portion_labels": {
+        "S": "Small piece",
+        "M": "1 piece",
+        "L": "Large piece"
+      },
+      "archetype": "pcs_chicken"
+    },
+    "Ayam_Goreng_Kunyit": {
+      "display_name": "Ayam Goreng Kunyit",
+      "category": "component",
+      "base_calories": 270,
+      "cooking_modifier": 1.2,
+      "description": "Turmeric fried chicken",
+      "protein_g": 24,
+      "carbs_g": 6,
+      "fat_g": 15,
+      "portion_labels": {
+        "S": "Small piece",
+        "M": "1 piece",
+        "L": "Large piece"
+      },
+      "archetype": "pcs_chicken"
+    },
+    "Ayam_Masak_Kicap": {
+      "display_name": "Ayam Masak Kicap",
+      "category": "component",
+      "base_calories": 230,
+      "cooking_modifier": 1.1,
+      "description": "Chicken in soy sauce gravy",
+      "protein_g": 22,
+      "carbs_g": 8,
+      "fat_g": 12,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "pcs_chicken"
+    },
+    "Ayam_Masak_Kurma": {
+      "display_name": "Ayam Masak Kurma",
+      "category": "component",
+      "base_calories": 260,
+      "cooking_modifier": 1.15,
+      "description": "Chicken in kurma curry sauce",
+      "protein_g": 22,
+      "carbs_g": 10,
+      "fat_g": 13,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "bowl_curry"
+    },
+    "Ayam_Masak_Lemak": {
+      "display_name": "Ayam Masak Lemak",
+      "category": "component",
+      "base_calories": 310,
+      "cooking_modifier": 1.2,
+      "description": "Chicken in coconut milk gravy, high fat",
+      "protein_g": 22,
+      "carbs_g": 8,
+      "fat_g": 20,
+      "portion_labels": {
+        "S": "Small bowl",
+        "M": "1 bowl",
+        "L": "Large bowl"
+      },
+      "archetype": "bowl_curry"
+    },
+    "Ayam_Masak_Merah": {
+      "display_name": "Ayam Masak Merah",
+      "category": "component",
+      "base_calories": 250,
+      "cooking_modifier": 1.15,
+      "description": "Chicken in spicy tomato sauce",
+      "protein_g": 23,
+      "carbs_g": 9,
+      "fat_g": 12,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "bowl_curry"
+    },
+    "Burger": {
+      "display_name": "Burger",
+      "category": "whole_dish",
+      "base_calories": 480,
+      "cooking_modifier": 1.2,
+      "description": "Standard burger with bun and patty",
+      "protein_g": 22,
+      "carbs_g": 42,
+      "fat_g": 22,
+      "portion_labels": {
+        "S": "Half burger",
+        "M": "1 burger",
+        "L": "Large burger"
+      },
+      "archetype": "whole_meal"
+    },
+    "Cendol": {
+      "display_name": "Cendol",
+      "category": "whole_dish",
+      "base_calories": 290,
+      "cooking_modifier": 1.0,
+      "description": "Iced dessert with coconut milk, gula melaka, pandan jelly",
+      "protein_g": 4,
+      "carbs_g": 52,
+      "fat_g": 8,
+      "portion_labels": {
+        "S": "Small cup",
+        "M": "1 cup",
+        "L": "Large cup"
+      },
+      "archetype": "cup_drink"
+    },
+    "Char_Kway_Teow": {
+      "display_name": "Char Kway Teow",
+      "category": "whole_dish",
+      "base_calories": 570,
+      "cooking_modifier": 1.2,
+      "description": "Stir fried flat rice noodles, high oil content",
+      "protein_g": 18,
+      "carbs_g": 70,
+      "fat_g": 22,
+      "portion_labels": {
+        "S": "Half plate",
+        "M": "1 plate",
+        "L": "Large plate"
+      },
+      "archetype": "noodle_plate"
+    },
+    "Daging_Bakar": {
+      "display_name": "Daging Bakar",
+      "category": "component",
+      "base_calories": 250,
+      "cooking_modifier": 1.05,
+      "description": "Grilled beef",
+      "protein_g": 30,
+      "carbs_g": 0,
+      "fat_g": 14,
+      "portion_labels": {
+        "S": "Small piece",
+        "M": "1 piece",
+        "L": "Large piece"
+      },
+      "archetype": "pcs_chicken"
+    },
+    "Gulai_Ikan_Tongkol": {
+      "display_name": "Gulai Ikan Tongkol",
+      "category": "component",
+      "base_calories": 200,
+      "cooking_modifier": 1.1,
+      "description": "Tuna in coconut curry gravy",
+      "protein_g": 22,
+      "carbs_g": 5,
+      "fat_g": 10,
+      "portion_labels": {
+        "S": "Small bowl",
+        "M": "1 bowl",
+        "L": "Large bowl"
+      },
+      "archetype": "bowl_curry"
+    },
+    "Ikan_Bilis_Goreng": {
+      "display_name": "Ikan Bilis Goreng",
+      "category": "component",
+      "base_calories": 110,
+      "cooking_modifier": 1.2,
+      "description": "Fried anchovies, standard small serving on plate",
+      "protein_g": 14,
+      "carbs_g": 2,
+      "fat_g": 5,
+      "portion_labels": {
+        "S": "Small spoon",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "spoon_condiment"
+    },
+    "Ikan_Goreng": {
+      "display_name": "Ikan Goreng",
+      "category": "component",
+      "base_calories": 230,
+      "cooking_modifier": 1.25,
+      "description": "Deep fried fish",
+      "protein_g": 26,
+      "carbs_g": 5,
+      "fat_g": 11,
+      "portion_labels": {
+        "S": "Small piece",
+        "M": "1 piece",
+        "L": "Large piece"
+      },
+      "archetype": "pcs_chicken"
+    },
+    "Kacang_Goreng": {
+      "display_name": "Kacang Goreng",
+      "category": "component",
+      "base_calories": 130,
+      "cooking_modifier": 1.1,
+      "description": "Fried peanuts, standard small serving",
+      "protein_g": 6,
+      "carbs_g": 12,
+      "fat_g": 7,
+      "portion_labels": {
+        "S": "Small cup",
+        "M": "1 cup",
+        "L": "Large cup"
+      },
+      "archetype": "cup_snack"
+    },
+    "Kangkung_Goreng": {
+      "display_name": "Kangkung Goreng",
+      "category": "component",
+      "base_calories": 80,
+      "cooking_modifier": 1.1,
+      "description": "Stir fried water spinach",
+      "protein_g": 3,
+      "carbs_g": 7,
+      "fat_g": 4,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "bowl_side"
+    },
+    "Karipap": {
+      "display_name": "Karipap",
+      "category": "snack",
+      "base_calories": 150,
+      "cooking_modifier": 1.15,
+      "description": "Curry puff pastry, deep fried, per piece",
+      "protein_g": 4,
+      "carbs_g": 18,
+      "fat_g": 7,
+      "portion_labels": {
+        "S": "1 small",
+        "M": "1 piece",
+        "L": "2 pieces"
+      },
+      "archetype": "pcs_small"
+    },
+    "Kaya_Toast": {
+      "display_name": "Kaya Toast",
+      "category": "snack",
+      "base_calories": 200,
+      "cooking_modifier": 1.1,
+      "description": "Toasted bread with kaya and butter, standard 2 slices",
+      "protein_g": 5,
+      "carbs_g": 28,
+      "fat_g": 8,
+      "portion_labels": {
+        "S": "1 slice",
+        "M": "2 slices",
+        "L": "3 slices"
+      },
+      "archetype": "slice_bread"
+    },
+    "Keli_Goreng": {
+      "display_name": "Keli Goreng",
+      "category": "component",
+      "base_calories": 240,
+      "cooking_modifier": 1.25,
+      "description": "Deep fried catfish",
+      "protein_g": 25,
+      "carbs_g": 5,
+      "fat_g": 13,
+      "portion_labels": {
+        "S": "Small piece",
+        "M": "1 piece",
+        "L": "Large piece"
+      },
+      "archetype": "pcs_chicken"
+    },
+    "Kentang": {
+      "display_name": "Kentang",
+      "category": "component",
+      "base_calories": 120,
+      "cooking_modifier": 1.0,
+      "description": "Potato, preparation varies \u2014 baseline boiled/steamed",
+      "protein_g": 3,
+      "carbs_g": 26,
+      "fat_g": 1,
+      "portion_labels": {
+        "S": "Half bowl",
+        "M": "1 bowl",
+        "L": "Large bowl"
+      },
+      "archetype": "bowl_side"
+    },
+    "Kway_Teow_Goreng": {
+      "display_name": "Kway Teow Goreng",
+      "category": "whole_dish",
+      "base_calories": 520,
+      "cooking_modifier": 1.15,
+      "description": "Fried flat rice noodles, slightly less oil than Char Kway Teow",
+      "protein_g": 15,
+      "carbs_g": 68,
+      "fat_g": 18,
+      "portion_labels": {
+        "S": "Half plate",
+        "M": "1 plate",
+        "L": "Large plate"
+      },
+      "archetype": "noodle_plate"
+    },
+    "Mee_Goreng": {
+      "display_name": "Mee Goreng",
+      "category": "whole_dish",
+      "base_calories": 500,
+      "cooking_modifier": 1.15,
+      "description": "Fried yellow noodles",
+      "protein_g": 16,
+      "carbs_g": 68,
+      "fat_g": 16,
+      "portion_labels": {
+        "S": "Half plate",
+        "M": "1 plate",
+        "L": "Large plate"
+      },
+      "archetype": "noodle_plate"
+    },
+    "Nasi_Dagang": {
+      "display_name": "Nasi Dagang",
+      "category": "whole_dish",
+      "base_calories": 600,
+      "cooking_modifier": 1.1,
+      "description": "Terengganu rice dish cooked in coconut milk, served with gulai ikan",
+      "protein_g": 25,
+      "carbs_g": 80,
+      "fat_g": 18,
+      "portion_labels": {
+        "S": "Half plate",
+        "M": "1 plate",
+        "L": "Large plate"
+      },
+      "archetype": "grain_rice"
+    },
+    "Nasi_Goreng": {
+      "display_name": "Nasi Goreng",
+      "category": "whole_dish",
+      "base_calories": 530,
+      "cooking_modifier": 1.15,
+      "description": "Fried rice, standard serving",
+      "protein_g": 15,
+      "carbs_g": 75,
+      "fat_g": 16,
+      "portion_labels": {
+        "S": "Half plate",
+        "M": "1 plate",
+        "L": "Large plate"
+      },
+      "archetype": "grain_rice"
+    },
+    "Nasi_Hujan_Panas": {
+      "display_name": "Nasi Hujan Panas",
+      "category": "whole_dish",
+      "base_calories": 450,
+      "cooking_modifier": 1.05,
+      "description": "Colourful festive rice, similar base to plain rice but with aromatics",
+      "protein_g": 10,
+      "carbs_g": 70,
+      "fat_g": 12,
+      "portion_labels": {
+        "S": "Half plate",
+        "M": "1 plate",
+        "L": "Large plate"
+      },
+      "archetype": "grain_rice"
+    },
+    "Nasi_Kerabu": {
+      "display_name": "Nasi Kerabu",
+      "category": "whole_dish",
+      "base_calories": 550,
+      "cooking_modifier": 1.05,
+      "description": "Blue rice with herbs, fish, and kerisik, Kelantan/Terengganu dish",
+      "protein_g": 22,
+      "carbs_g": 72,
+      "fat_g": 16,
+      "portion_labels": {
+        "S": "Half plate",
+        "M": "1 plate",
+        "L": "Large plate"
+      },
+      "archetype": "grain_rice"
+    },
+    "Nasi_Lemak": {
+      "display_name": "Nasi Lemak",
+      "category": "whole_dish",
+      "base_calories": 644,
+      "cooking_modifier": 1.1,
+      "description": "Coconut milk rice with sambal, anchovies, peanuts, egg, cucumber",
+      "protein_g": 20,
+      "carbs_g": 80,
+      "fat_g": 26,
+      "portion_labels": {
+        "S": "Small pack",
+        "M": "1 pack",
+        "L": "Large pack"
+      },
+      "archetype": "whole_meal"
+    },
+    "Nasi_Minyak": {
+      "display_name": "Nasi Minyak",
+      "category": "whole_dish",
+      "base_calories": 420,
+      "cooking_modifier": 1.1,
+      "description": "Ghee rice, fragrant and oily",
+      "protein_g": 8,
+      "carbs_g": 68,
+      "fat_g": 12,
+      "portion_labels": {
+        "S": "Half plate",
+        "M": "1 plate",
+        "L": "Large plate"
+      },
+      "archetype": "grain_rice"
+    },
+    "Nasi_Putih": {
+      "display_name": "Nasi Putih",
+      "category": "component",
+      "base_calories": 260,
+      "cooking_modifier": 1.0,
+      "description": "Plain white rice, standard 1 cup serving",
+      "protein_g": 5,
+      "carbs_g": 57,
+      "fat_g": 1,
+      "portion_labels": {
+        "S": "Half bowl",
+        "M": "1 bowl",
+        "L": "1.5 bowls"
+      },
+      "archetype": "grain_rice"
+    },
+    "Paru_Goreng": {
+      "display_name": "Paru Goreng",
+      "category": "component",
+      "base_calories": 200,
+      "cooking_modifier": 1.25,
+      "description": "Deep fried beef lung",
+      "protein_g": 22,
+      "carbs_g": 4,
+      "fat_g": 11,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "pcs_small"
+    },
+    "Patin_Tempoyak": {
+      "display_name": "Patin Tempoyak",
+      "category": "whole_dish",
+      "base_calories": 380,
+      "cooking_modifier": 1.1,
+      "description": "Patin fish cooked with fermented durian, Pahang/Terengganu dish",
+      "protein_g": 28,
+      "carbs_g": 15,
+      "fat_g": 22,
+      "portion_labels": {
+        "S": "Small bowl",
+        "M": "1 bowl",
+        "L": "Large bowl"
+      },
+      "archetype": "bowl_curry"
+    },
+    "Pisang_Goreng": {
+      "display_name": "Pisang Goreng",
+      "category": "snack",
+      "base_calories": 150,
+      "cooking_modifier": 1.2,
+      "description": "Fried banana fritter, per piece",
+      "protein_g": 1,
+      "carbs_g": 22,
+      "fat_g": 7,
+      "portion_labels": {
+        "S": "1 small",
+        "M": "1 piece",
+        "L": "2 pieces"
+      },
+      "archetype": "pcs_small"
+    },
+    "Pizza": {
+      "display_name": "Pizza",
+      "category": "whole_dish",
+      "base_calories": 570,
+      "cooking_modifier": 1.1,
+      "description": "Standard 2 slices of regular pizza",
+      "protein_g": 22,
+      "carbs_g": 65,
+      "fat_g": 22,
+      "portion_labels": {
+        "S": "1 slice",
+        "M": "2 slices",
+        "L": "3 slices"
+      },
+      "archetype": "slice_pizza"
+    },
+    "Popia_Goreng": {
+      "display_name": "Popia Goreng",
+      "category": "snack",
+      "base_calories": 130,
+      "cooking_modifier": 1.2,
+      "description": "Fried spring roll, per piece",
+      "protein_g": 4,
+      "carbs_g": 16,
+      "fat_g": 6,
+      "portion_labels": {
+        "S": "1 small",
+        "M": "1 piece",
+        "L": "2 pieces"
+      },
+      "archetype": "pcs_small"
+    },
+    "Rendang_Daging": {
+      "display_name": "Rendang Daging",
+      "category": "component",
+      "base_calories": 300,
+      "cooking_modifier": 1.15,
+      "description": "Dry beef rendang, rich in coconut and spices",
+      "protein_g": 26,
+      "carbs_g": 8,
+      "fat_g": 18,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Heaped serve"
+      },
+      "archetype": "bowl_curry"
+    },
+    "Roti_Canai": {
+      "display_name": "Roti Canai",
+      "category": "snack",
+      "base_calories": 300,
+      "cooking_modifier": 1.1,
+      "description": "Flatbread cooked with ghee, standard 1 piece with dhal",
+      "protein_g": 7,
+      "carbs_g": 42,
+      "fat_g": 12,
+      "portion_labels": {
+        "S": "Half roti",
+        "M": "1 roti",
+        "L": "1.5 roti"
+      },
+      "archetype": "whole_meal"
+    },
+    "Sambal": {
+      "display_name": "Sambal",
+      "category": "component",
+      "base_calories": 60,
+      "cooking_modifier": 1.1,
+      "description": "Chili sambal, standard small serving (~2 tbsp)",
+      "protein_g": 1,
+      "carbs_g": 8,
+      "fat_g": 3,
+      "portion_labels": {
+        "S": "Small spoon",
+        "M": "1 spoon",
+        "L": "Heaped spoon"
+      },
+      "archetype": "spoon_condiment"
+    },
+    "Sambal_Ikan_Bilis": {
+      "display_name": "Sambal Ikan Bilis",
+      "category": "component",
+      "base_calories": 80,
+      "cooking_modifier": 1.1,
+      "description": "Sambal with anchovies, slightly higher than plain sambal",
+      "protein_g": 5,
+      "carbs_g": 6,
+      "fat_g": 4,
+      "portion_labels": {
+        "S": "Small spoon",
+        "M": "1 spoon",
+        "L": "Heaped spoon"
+      },
+      "archetype": "spoon_condiment"
+    },
+    "Satay": {
+      "display_name": "Satay",
+      "category": "snack",
+      "base_calories": 200,
+      "cooking_modifier": 1.05,
+      "description": "Grilled meat skewers, standard 5 sticks with peanut sauce",
+      "protein_g": 20,
+      "carbs_g": 8,
+      "fat_g": 10,
+      "portion_labels": {
+        "S": "3 sticks",
+        "M": "5 sticks",
+        "L": "7 sticks"
+      },
+      "archetype": "satay_sticks"
+    },
+    "Solok_Lada": {
+      "display_name": "Solok Lada",
+      "category": "snack",
+      "base_calories": 120,
+      "cooking_modifier": 1.0,
+      "description": "Stuffed chili with fish paste, steamed/boiled",
+      "protein_g": 6,
+      "carbs_g": 14,
+      "fat_g": 5,
+      "portion_labels": {
+        "S": "1 piece",
+        "M": "2 pieces",
+        "L": "3 pieces"
+      },
+      "archetype": "pcs_small"
+    },
+    "Steak": {
+      "display_name": "Steak",
+      "category": "whole_dish",
+      "base_calories": 500,
+      "cooking_modifier": 1.1,
+      "description": "Grilled beef steak, standard 150g portion",
+      "protein_g": 42,
+      "carbs_g": 0,
+      "fat_g": 36,
+      "portion_labels": {
+        "S": "Small steak",
+        "M": "1 steak",
+        "L": "Large steak"
+      },
+      "archetype": "whole_meal"
+    },
+    "Telur_Dadar": {
+      "display_name": "Telur Dadar",
+      "category": "component",
+      "base_calories": 130,
+      "cooking_modifier": 1.15,
+      "description": "Omelette, pan fried with oil",
+      "protein_g": 8,
+      "carbs_g": 2,
+      "fat_g": 10,
+      "portion_labels": {
+        "S": "Small omelette",
+        "M": "1 omelette",
+        "L": "Large omelette"
+      },
+      "archetype": "whole_meal"
+    },
+    "Telur_Goreng": {
+      "display_name": "Telur Goreng",
+      "category": "component",
+      "base_calories": 110,
+      "cooking_modifier": 1.15,
+      "description": "Fried egg, sunny side up or crispy fried",
+      "protein_g": 7,
+      "carbs_g": 1,
+      "fat_g": 8,
+      "portion_labels": {
+        "S": "1 small egg",
+        "M": "1 egg",
+        "L": "1 large egg"
+      },
+      "archetype": "pcs_egg"
+    },
+    "Telur_Masin": {
+      "display_name": "Telur Masin",
+      "category": "component",
+      "base_calories": 80,
+      "cooking_modifier": 1.0,
+      "description": "Salted egg, per egg",
+      "protein_g": 7,
+      "carbs_g": 1,
+      "fat_g": 5,
+      "portion_labels": {
+        "S": "Half egg",
+        "M": "1 egg",
+        "L": "2 eggs"
+      },
+      "archetype": "pcs_egg"
+    },
+    "Telur_Rebus": {
+      "display_name": "Telur Rebus",
+      "category": "component",
+      "base_calories": 70,
+      "cooking_modifier": 1.0,
+      "description": "Boiled egg, per egg",
+      "protein_g": 6,
+      "carbs_g": 0,
+      "fat_g": 5,
+      "portion_labels": {
+        "S": "1 small egg",
+        "M": "1 egg",
+        "L": "2 eggs"
+      },
+      "archetype": "pcs_egg"
+    },
+    "Tempe_Goreng": {
+      "display_name": "Tempe Goreng",
+      "category": "component",
+      "base_calories": 160,
+      "cooking_modifier": 1.2,
+      "description": "Fried tempeh, standard small serving",
+      "protein_g": 11,
+      "carbs_g": 10,
+      "fat_g": 8,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "pcs_small"
+    },
+    "Timun": {
+      "display_name": "Timun",
+      "category": "component",
+      "base_calories": 15,
+      "cooking_modifier": 1.0,
+      "description": "Fresh cucumber slices, standard serving",
+      "protein_g": 1,
+      "carbs_g": 3,
+      "fat_g": 0,
+      "portion_labels": {
+        "S": "Few slices",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "slice_thin"
+    },
+    "Udang": {
+      "display_name": "Udang",
+      "category": "component",
+      "base_calories": 120,
+      "cooking_modifier": 1.1,
+      "description": "Prawns, preparation varies \u2014 baseline is cooked/stir fried",
+      "protein_g": 18,
+      "carbs_g": 3,
+      "fat_g": 3,
+      "portion_labels": {
+        "S": "3 pieces",
+        "M": "5 pieces",
+        "L": "8 pieces"
+      },
+      "archetype": "pcs_small"
+    }
+  }
+}

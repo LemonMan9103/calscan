@@ -44,5 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Firebase — keep only inside android/app/, not root
-/google-services.json
+# Firebase config — contains API keys, never commit
+**/google-services.json
+lib/firebase_options.dart

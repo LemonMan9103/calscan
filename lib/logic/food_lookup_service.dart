@@ -1,30 +1,54 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 
-/// A single selectable portion option for a food archetype.
+/// A single selectable portion option for a chips-type archetype.
 class PortionOption {
   final String label;
   final double multiplier;
   const PortionOption({required this.label, required this.multiplier});
 }
 
-/// The set of portion options and the default selection index for an archetype.
+/// The portion configuration for a food archetype.
+/// [inputType] is either 'chips' or 'counter'.
 class ArchetypeInfo {
   final String archetypeId;
   final String archetypeLabel;
+  final String inputType;
+
+  // chips fields
   final List<PortionOption> options;
   final int defaultIndex;
+
+  // counter fields
+  final String unitName;
+  final String unitNamePlural;
+  final int referenceCount;
+  final int minCount;
+  final int defaultCount;
 
   const ArchetypeInfo({
     required this.archetypeId,
     required this.archetypeLabel,
-    required this.options,
-    required this.defaultIndex,
+    required this.inputType,
+    this.options = const [],
+    this.defaultIndex = 0,
+    this.unitName = '',
+    this.unitNamePlural = '',
+    this.referenceCount = 1,
+    this.minCount = 1,
+    this.defaultCount = 1,
   });
 
-  PortionOption option(int index) =>
-      options[index.clamp(0, options.length - 1)];
+  bool get isCounter => inputType == 'counter';
+
+  PortionOption option(int index) => options.isEmpty
+      ? const PortionOption(label: 'Regular', multiplier: 1.0)
+      : options[index.clamp(0, options.length - 1)];
+
   PortionOption get defaultOption => option(defaultIndex);
+
+  String countLabel(int count) =>
+      '$count ${count == 1 ? unitName : unitNamePlural}';
 }
 
 /// Holds all data for a single food entry from the lookup table.
@@ -67,6 +91,7 @@ class FoodLookupService {
   static final ArchetypeInfo _fallback = ArchetypeInfo(
     archetypeId: 'generic',
     archetypeLabel: 'Serving',
+    inputType: 'chips',
     options: const [
       PortionOption(label: 'Small',   multiplier: 0.8),
       PortionOption(label: 'Regular', multiplier: 1.0),
@@ -82,26 +107,51 @@ class FoodLookupService {
     final json = jsonDecode(raw) as Map<String, dynamic>;
     final meta = json['metadata'] as Map<String, dynamic>;
 
-    // Parse archetype definitions from metadata
     final archetypeMap = meta['archetypes'] as Map<String, dynamic>? ?? {};
     for (final entry in archetypeMap.entries) {
       final d = entry.value as Map<String, dynamic>;
-      final rawOpts = d['options'] as List<dynamic>;
-      _archetypes[entry.key] = ArchetypeInfo(
-        archetypeId: entry.key,
-        archetypeLabel: d['label'] as String? ?? entry.key,
-        options: rawOpts.map((o) {
+      final inputType = d['input_type'] as String? ?? 'chips';
+
+      List<PortionOption> options = [];
+      int defaultIndex = 0;
+      String unitName = '';
+      String unitNamePlural = '';
+      int referenceCount = 1;
+      int minCount = 1;
+      int defaultCount = 1;
+
+      if (inputType == 'chips') {
+        final rawOpts = d['options'] as List<dynamic>? ?? [];
+        options = rawOpts.map((o) {
           final opt = o as Map<String, dynamic>;
           return PortionOption(
             label: opt['label'] as String,
             multiplier: (opt['multiplier'] as num).toDouble(),
           );
-        }).toList(),
-        defaultIndex: (d['default'] as num?)?.toInt() ?? 0,
+        }).toList();
+        defaultIndex = (d['default'] as num?)?.toInt() ?? 0;
+      } else {
+        unitName = d['unit_name'] as String? ?? '';
+        unitNamePlural = d['unit_name_plural'] as String? ?? '';
+        referenceCount = (d['reference_count'] as num?)?.toInt() ?? 1;
+        minCount = (d['min_count'] as num?)?.toInt() ?? 1;
+        defaultCount = (d['default_count'] as num?)?.toInt() ?? 1;
+      }
+
+      _archetypes[entry.key] = ArchetypeInfo(
+        archetypeId: entry.key,
+        archetypeLabel: d['label'] as String? ?? entry.key,
+        inputType: inputType,
+        options: options,
+        defaultIndex: defaultIndex,
+        unitName: unitName,
+        unitNamePlural: unitNamePlural,
+        referenceCount: referenceCount,
+        minCount: minCount,
+        defaultCount: defaultCount,
       );
     }
 
-    // Parse food entries
     final foods = json['foods'] as Map<String, dynamic>;
     for (final entry in foods.entries) {
       final d = entry.value as Map<String, dynamic>;
@@ -141,12 +191,13 @@ class FoodLookupService {
   int getDefaultPortionIndex(String labelKey) =>
       getArchetype(labelKey).defaultIndex;
 
-  // ── Calorie & macro calculation ─────────────────────────────────────────────
+  // ── Calorie & macro calculation — chips type ─────────────────────────────────
 
   double getCaloriesForOption(String labelKey, int optionIndex) {
     final entry = _entries[labelKey];
     if (entry == null) return 0.0;
-    return entry.baseCalories * getArchetype(labelKey).option(optionIndex).multiplier;
+    return entry.baseCalories *
+        getArchetype(labelKey).option(optionIndex).multiplier;
   }
 
   ({double protein, double carbs, double fat}) getMacrosForOption(
@@ -160,6 +211,29 @@ class FoodLookupService {
       protein: entry.baseProtein * m,
       carbs:   entry.baseCarbs   * m,
       fat:     entry.baseFat     * m,
+    );
+  }
+
+  // ── Calorie & macro calculation — counter type ───────────────────────────────
+
+  double getCaloriesForCount(String labelKey, int count) {
+    final entry = _entries[labelKey];
+    if (entry == null) return 0.0;
+    final arch = getArchetype(labelKey);
+    return entry.baseCalories * count / arch.referenceCount;
+  }
+
+  ({double protein, double carbs, double fat}) getMacrosForCount(
+    String labelKey,
+    int count,
+  ) {
+    final entry = _entries[labelKey];
+    if (entry == null) return (protein: 0.0, carbs: 0.0, fat: 0.0);
+    final ratio = count / getArchetype(labelKey).referenceCount;
+    return (
+      protein: entry.baseProtein * ratio,
+      carbs:   entry.baseCarbs   * ratio,
+      fat:     entry.baseFat     * ratio,
     );
   }
 

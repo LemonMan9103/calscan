@@ -3,6 +3,7 @@ import 'package:calscan/profile/profile_setup.dart';
 import 'package:calscan/home/main_wrapper.dart';
 import 'package:calscan/logic/firestore_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -99,6 +100,48 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      const webClientId =
+          '1050012405625-ur5nmlkpnkndrg2lrevjjhn1b70m5q8i.apps.googleusercontent.com';
+      final googleSignIn = GoogleSignIn(serverClientId: webClientId);
+      // Sign out first so the account picker always appears
+      await googleSignIn.signOut();
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) return; // user cancelled
+      final googleAuth = await googleUser.authentication;
+      if (googleAuth.idToken == null) {
+        throw Exception('No ID token returned — check Firebase SHA-1 configuration.');
+      }
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      if (mounted) {
+        final profile = await FirestoreService().getUserProfile();
+        if (profile != null && profile.exists) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainWrapper()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfileSetupPage()),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) _showError(e.message ?? 'Google sign-in failed');
+    } catch (e) {
+      if (mounted) _showError('Google sign-in failed: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _handleForgotPassword() async {
     final emailController = TextEditingController(
       text: _emailController.text.trim(),
@@ -156,6 +199,9 @@ class _LoginPageState extends State<LoginPage> {
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       _showError(e.message ?? 'Could not send reset email.');
+    } catch (_) {
+      if (!mounted) return;
+      _showError('Could not send reset email. Please try again.');
     }
   }
 
@@ -373,6 +419,54 @@ class _LoginPageState extends State<LoginPage> {
                                           ),
                                         ],
                                       ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(child: Divider(color: Colors.grey.shade300)),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  child: Text(
+                                    'or',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade500,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(child: Divider(color: Colors.grey.shade300)),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: _isLoading ? null : _signInWithGoogle,
+                                icon: Image.asset(
+                                  'assets/google_logo.png',
+                                  height: 18,
+                                  width: 18,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.g_mobiledata,
+                                    size: 20,
+                                    color: Color(0xFF4285F4),
+                                  ),
+                                ),
+                                label: const Text(
+                                  'Continue with Google',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 11),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  side: BorderSide(color: Colors.grey.shade300),
+                                ),
                               ),
                             ),
                           ],

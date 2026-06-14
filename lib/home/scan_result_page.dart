@@ -30,6 +30,7 @@ class _ScanResultPageState extends State<ScanResultPage>
   final FoodLookupService _lookup = FoodLookupService();
 
   final Map<String, int> _portionIndices = {};
+  final Map<String, int> _counts = {};
   bool _isSaving = false;
   bool _saved = false;
   late final List<FoodDetection> _detections;
@@ -43,7 +44,12 @@ class _ScanResultPageState extends State<ScanResultPage>
     super.initState();
     _detections = _applyDishStrategy(widget.detections);
     for (final d in _detections) {
-      _portionIndices[d.labelKey] = _lookup.getDefaultPortionIndex(d.labelKey);
+      final arch = _lookup.getArchetype(d.labelKey);
+      if (arch.isCounter) {
+        _counts[d.labelKey] = arch.defaultCount;
+      } else {
+        _portionIndices[d.labelKey] = _lookup.getDefaultPortionIndex(d.labelKey);
+      }
     }
     _loadImageSize();
     _animationController = AnimationController(
@@ -83,8 +89,15 @@ class _ScanResultPageState extends State<ScanResultPage>
     super.dispose();
   }
 
-  double get _totalCalories => _detections.fold(0.0, (total, d) =>
-      total + _lookup.getCaloriesForOption(d.labelKey, _portionIndices[d.labelKey] ?? 0));
+  double get _totalCalories => _detections.fold(0.0, (total, d) {
+    final arch = _lookup.getArchetype(d.labelKey);
+    if (arch.isCounter) {
+      return total + _lookup.getCaloriesForCount(
+          d.labelKey, _counts[d.labelKey] ?? arch.defaultCount);
+    }
+    return total + _lookup.getCaloriesForOption(
+        d.labelKey, _portionIndices[d.labelKey] ?? 0);
+  });
 
   double get _averageConfidence => _detections.isEmpty
       ? 0.0
@@ -101,8 +114,13 @@ class _ScanResultPageState extends State<ScanResultPage>
   String get _servingLabel {
     if (_detections.isEmpty) return '1 serving';
     return _detections.map((d) {
+      final arch = _lookup.getArchetype(d.labelKey);
+      if (arch.isCounter) {
+        final count = _counts[d.labelKey] ?? arch.defaultCount;
+        return arch.countLabel(count);
+      }
       final idx = _portionIndices[d.labelKey] ?? 0;
-      return _lookup.getArchetype(d.labelKey).option(idx).label;
+      return arch.option(idx).label;
     }).join(' + ');
   }
 
@@ -113,8 +131,12 @@ class _ScanResultPageState extends State<ScanResultPage>
     try {
       double totalProtein = 0, totalCarbs = 0, totalFat = 0;
       for (final detection in _detections) {
-        final idx = _portionIndices[detection.labelKey] ?? 0;
-        final macros = _lookup.getMacrosForOption(detection.labelKey, idx);
+        final arch = _lookup.getArchetype(detection.labelKey);
+        final macros = arch.isCounter
+            ? _lookup.getMacrosForCount(
+                detection.labelKey, _counts[detection.labelKey] ?? arch.defaultCount)
+            : _lookup.getMacrosForOption(
+                detection.labelKey, _portionIndices[detection.labelKey] ?? 0);
         totalProtein += macros.protein;
         totalCarbs += macros.carbs;
         totalFat += macros.fat;
@@ -369,10 +391,19 @@ class _ScanResultPageState extends State<ScanResultPage>
 
   Widget _buildDetectionRow(FoodDetection detection) {
     final theme = Theme.of(context);
-    final archetype = _lookup.getArchetype(detection.labelKey);
-    final selectedIdx = _portionIndices[detection.labelKey] ?? archetype.defaultIndex;
-    final calories = _lookup.getCaloriesForOption(detection.labelKey, selectedIdx);
-    final macros = _lookup.getMacrosForOption(detection.labelKey, selectedIdx);
+    final arch = _lookup.getArchetype(detection.labelKey);
+
+    final double calories;
+    final ({double protein, double carbs, double fat}) macros;
+    if (arch.isCounter) {
+      final count = _counts[detection.labelKey] ?? arch.defaultCount;
+      calories = _lookup.getCaloriesForCount(detection.labelKey, count);
+      macros = _lookup.getMacrosForCount(detection.labelKey, count);
+    } else {
+      final idx = _portionIndices[detection.labelKey] ?? arch.defaultIndex;
+      calories = _lookup.getCaloriesForOption(detection.labelKey, idx);
+      macros = _lookup.getMacrosForOption(detection.labelKey, idx);
+    }
     final hasMacros = macros.protein + macros.carbs + macros.fat > 0;
 
     return Container(
@@ -429,38 +460,75 @@ class _ScanResultPageState extends State<ScanResultPage>
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: List.generate(archetype.options.length, (i) {
-              final opt = archetype.options[i];
-              final sel = i == selectedIdx;
-              return GestureDetector(
-                onTap: () => setState(() => _portionIndices[detection.labelKey] = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: sel ? const Color(0xFFFF7E00) : theme.colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: sel ? const Color(0xFFFF7E00) : theme.dividerColor,
-                    ),
-                  ),
-                  child: Text(
-                    opt.label,
-                    style: TextStyle(
-                      color: sel ? Colors.white : theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
+          if (arch.isCounter)
+            _buildCounterRow(detection.labelKey, arch, theme)
+          else
+            _buildChipsRow(detection.labelKey, arch, theme),
         ],
       ),
+    );
+  }
+
+  Widget _buildCounterRow(String labelKey, ArchetypeInfo arch, ThemeData theme) {
+    final count = _counts[labelKey] ?? arch.defaultCount;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          onPressed: count > arch.minCount
+              ? () => setState(() => _counts[labelKey] = count - 1)
+              : null,
+          icon: const Icon(Icons.remove_circle_outline),
+          color: const Color(0xFFFF7E00),
+          iconSize: 26,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          arch.countLabel(count),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          onPressed: () => setState(() => _counts[labelKey] = count + 1),
+          icon: const Icon(Icons.add_circle_outline),
+          color: const Color(0xFFFF7E00),
+          iconSize: 26,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChipsRow(String labelKey, ArchetypeInfo arch, ThemeData theme) {
+    final selectedIdx = _portionIndices[labelKey] ?? arch.defaultIndex;
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: List.generate(arch.options.length, (i) {
+        final opt = arch.options[i];
+        final sel = i == selectedIdx;
+        return GestureDetector(
+          onTap: () => setState(() => _portionIndices[labelKey] = i),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: sel ? const Color(0xFFFF7E00) : theme.colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: sel ? const Color(0xFFFF7E00) : theme.dividerColor,
+              ),
+            ),
+            child: Text(
+              opt.label,
+              style: TextStyle(
+                color: sel ? Colors.white : theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -468,7 +536,7 @@ class _ScanResultPageState extends State<ScanResultPage>
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 200),
       child: Container(
-        key: ValueKey(_portionIndices.values.fold(0, (a, b) => a + b)),
+        key: ValueKey(_totalCalories.toInt()),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(

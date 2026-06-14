@@ -17,6 +17,13 @@ class _NutritionPageState extends State<NutritionPage> {
   String _query = '';
   late List<FoodEntry> _allFoods;
 
+  static const _categoryOrder = ['whole_dish', 'component', 'snack'];
+  static const _categoryHeaders = {
+    'whole_dish': 'Whole Dishes',
+    'component': 'Side Dishes & Components',
+    'snack': 'Snacks',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +45,14 @@ class _NutritionPageState extends State<NutritionPage> {
             f.displayName.toLowerCase().contains(q) ||
             f.description.toLowerCase().contains(q))
         .toList();
+  }
+
+  Map<String, List<FoodEntry>> get _grouped {
+    final result = <String, List<FoodEntry>>{};
+    for (final food in _allFoods) {
+      result.putIfAbsent(food.category, () => []).add(food);
+    }
+    return result;
   }
 
   @override
@@ -67,7 +82,8 @@ class _NutritionPageState extends State<NutritionPage> {
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 suffixIcon: _query.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                        icon: const Icon(Icons.close,
+                            size: 18, color: Colors.grey),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _query = '');
@@ -86,14 +102,43 @@ class _NutritionPageState extends State<NutritionPage> {
           ),
         ),
       ),
-      body: _filtered.isEmpty
-          ? _buildEmpty()
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              itemCount: _filtered.length,
-              itemBuilder: (context, index) =>
-                  _FoodCard(entry: _filtered[index]),
+      body: _query.isNotEmpty ? _buildSearchResults() : _buildGroupedList(),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    final results = _filtered;
+    if (results.isEmpty) return _buildEmpty();
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: results.length,
+      itemBuilder: (context, index) => _FoodCard(entry: results[index]),
+    );
+  }
+
+  Widget _buildGroupedList() {
+    final grouped = _grouped;
+    return CustomScrollView(
+      slivers: [
+        for (final cat in _categoryOrder) ...[
+          if (grouped[cat]?.isNotEmpty ?? false) ...[
+            SliverToBoxAdapter(
+              child: _SectionHeader(title: _categoryHeaders[cat]!),
             ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) =>
+                      _FoodCard(entry: grouped[cat]![index]),
+                  childCount: grouped[cat]!.length,
+                ),
+              ),
+            ),
+          ],
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
     );
   }
 
@@ -117,6 +162,27 @@ class _NutritionPageState extends State<NutritionPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
+      child: Text(
+        title.toUpperCase(),
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: theme.colorScheme.onSurfaceVariant,
+          letterSpacing: 1.1,
+        ),
       ),
     );
   }

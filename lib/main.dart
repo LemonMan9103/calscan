@@ -10,7 +10,11 @@ import 'package:calscan/theme/theme_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
   await FoodLookupService().load(); // pre-load calorie lookup table
   final themeController = await ThemeController.load();
   runApp(MyApp(themeController: themeController));
@@ -39,7 +43,9 @@ class _MyAppState extends State<MyApp> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFFFF7E00)),
+            ),
           );
         }
         return snapshot.hasData

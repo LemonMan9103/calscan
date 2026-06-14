@@ -18,6 +18,7 @@ extension CalorieBasisLabel on CalorieBasis {
 class NutritionLabelEstimate {
   final String productName;
   final double? calories;
+  final double? caloriesPer100g;
   final CalorieBasis calorieBasis;
   final String serving;
   final String rawText;
@@ -25,6 +26,7 @@ class NutritionLabelEstimate {
   const NutritionLabelEstimate({
     required this.productName,
     required this.calories,
+    this.caloriesPer100g,
     required this.calorieBasis,
     required this.serving,
     required this.rawText,
@@ -38,10 +40,12 @@ NutritionLabelEstimate parseNutritionLabel(String rawText) {
       .where((line) => line.isNotEmpty)
       .toList();
   final calorieResult = _findCalories(lines);
+  final per100gResult = _findBasisCalories(lines, CalorieBasis.per100g);
 
   return NutritionLabelEstimate(
     productName: _findProductName(lines),
     calories: calorieResult.calories,
+    caloriesPer100g: per100gResult?.calories,
     calorieBasis: calorieResult.basis,
     serving: _findServing(lines),
     rawText: rawText.trim(),

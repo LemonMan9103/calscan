@@ -155,47 +155,6 @@ class _RecordsPageState extends State<RecordsPage> {
               ),
             ],
           ),
-          // Monthly calorie summary banner
-          if (mealCount > 0) ...[
-            const SizedBox(height: 8),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF7E00), Color(0xFFFF4B2B)],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.local_fire_department,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Total this month',
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '${totalCalories.toInt()} kcal',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );

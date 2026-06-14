@@ -11,279 +11,149 @@
     "archetypes": {
       "grain_rice": {
         "label": "Rice",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "1 scoop",
-            "multiplier": 0.5
-          },
-          {
-            "label": "1 cup",
-            "multiplier": 0.75
-          },
-          {
-            "label": "1 bowl",
-            "multiplier": 1.0
-          },
-          {
-            "label": "1.5 bowls",
-            "multiplier": 1.5
-          }
+          { "label": "1 scoop", "multiplier": 0.5 },
+          { "label": "1 cup", "multiplier": 0.75 },
+          { "label": "1 bowl", "multiplier": 1.0 },
+          { "label": "1.5 bowls", "multiplier": 1.5 }
         ],
         "default": 2
       },
       "noodle_plate": {
         "label": "Noodle / Plate dish",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "Half plate",
-            "multiplier": 0.7
-          },
-          {
-            "label": "1 plate",
-            "multiplier": 1.0
-          },
-          {
-            "label": "Large plate",
-            "multiplier": 1.4
-          }
+          { "label": "Half plate", "multiplier": 0.7 },
+          { "label": "1 plate", "multiplier": 1.0 },
+          { "label": "Large plate", "multiplier": 1.4 }
         ],
         "default": 1
       },
       "pcs_chicken": {
         "label": "Chicken / Fish piece",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "Small piece",
-            "multiplier": 0.7
-          },
-          {
-            "label": "1 piece",
-            "multiplier": 1.0
-          },
-          {
-            "label": "Large piece",
-            "multiplier": 1.4
-          }
+          { "label": "Small piece", "multiplier": 0.7 },
+          { "label": "1 piece", "multiplier": 1.0 },
+          { "label": "Large piece", "multiplier": 1.4 }
         ],
         "default": 1
       },
       "pcs_egg": {
         "label": "Eggs",
-        "options": [
-          {
-            "label": "1 egg",
-            "multiplier": 1.0
-          },
-          {
-            "label": "2 eggs",
-            "multiplier": 2.0
-          },
-          {
-            "label": "3 eggs",
-            "multiplier": 3.0
-          }
-        ],
-        "default": 0
+        "input_type": "counter",
+        "unit_name": "egg",
+        "unit_name_plural": "eggs",
+        "reference_count": 1,
+        "min_count": 1,
+        "default_count": 1
       },
       "pcs_small": {
         "label": "Small items / pcs",
-        "options": [
-          {
-            "label": "1 pc",
-            "multiplier": 1.0
-          },
-          {
-            "label": "2 pcs",
-            "multiplier": 2.0
-          },
-          {
-            "label": "3 pcs",
-            "multiplier": 3.0
-          }
-        ],
-        "default": 0
+        "input_type": "counter",
+        "unit_name": "pc",
+        "unit_name_plural": "pcs",
+        "reference_count": 1,
+        "min_count": 1,
+        "default_count": 1
       },
       "satay_sticks": {
         "label": "Satay sticks",
-        "options": [
-          {
-            "label": "3 sticks",
-            "multiplier": 0.6
-          },
-          {
-            "label": "5 sticks",
-            "multiplier": 1.0
-          },
-          {
-            "label": "7 sticks",
-            "multiplier": 1.4
-          },
-          {
-            "label": "10 sticks",
-            "multiplier": 2.0
-          }
-        ],
-        "default": 1
+        "input_type": "counter",
+        "unit_name": "stick",
+        "unit_name_plural": "sticks",
+        "reference_count": 5,
+        "min_count": 1,
+        "default_count": 5
       },
       "slice_thin": {
         "label": "Thin slices",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "2 thin slices",
-            "multiplier": 0.5
-          },
-          {
-            "label": "4 thin slices",
-            "multiplier": 1.0
-          },
-          {
-            "label": "6 thin slices",
-            "multiplier": 1.5
-          }
+          { "label": "2 thin slices", "multiplier": 0.5 },
+          { "label": "4 thin slices", "multiplier": 1.0 },
+          { "label": "6 thin slices", "multiplier": 1.5 }
         ],
         "default": 1
       },
       "slice_bread": {
         "label": "Bread / Toast",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "1 slice",
-            "multiplier": 0.6
-          },
-          {
-            "label": "2 slices",
-            "multiplier": 1.0
-          },
-          {
-            "label": "3 slices",
-            "multiplier": 1.5
-          }
+          { "label": "1 slice", "multiplier": 0.6 },
+          { "label": "2 slices", "multiplier": 1.0 },
+          { "label": "3 slices", "multiplier": 1.5 }
         ],
         "default": 1
       },
       "slice_pizza": {
         "label": "Pizza slices",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "1 slice",
-            "multiplier": 0.5
-          },
-          {
-            "label": "2 slices",
-            "multiplier": 1.0
-          },
-          {
-            "label": "3 slices",
-            "multiplier": 1.5
-          }
+          { "label": "1 slice", "multiplier": 0.5 },
+          { "label": "2 slices", "multiplier": 1.0 },
+          { "label": "3 slices", "multiplier": 1.5 }
         ],
         "default": 1
       },
       "cup_drink": {
         "label": "Cup / Drink",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "Small cup",
-            "multiplier": 0.7
-          },
-          {
-            "label": "1 cup",
-            "multiplier": 1.0
-          },
-          {
-            "label": "Large cup",
-            "multiplier": 1.4
-          }
+          { "label": "Small cup", "multiplier": 0.7 },
+          { "label": "1 cup", "multiplier": 1.0 },
+          { "label": "Large cup", "multiplier": 1.4 }
         ],
         "default": 1
       },
       "cup_snack": {
         "label": "Cup snack",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "Small cup",
-            "multiplier": 0.6
-          },
-          {
-            "label": "1 cup",
-            "multiplier": 1.0
-          },
-          {
-            "label": "Large cup",
-            "multiplier": 1.5
-          }
+          { "label": "Small cup", "multiplier": 0.6 },
+          { "label": "1 cup", "multiplier": 1.0 },
+          { "label": "Large cup", "multiplier": 1.5 }
         ],
         "default": 1
       },
       "bowl_curry": {
         "label": "Bowl / Curry",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "Small bowl",
-            "multiplier": 0.7
-          },
-          {
-            "label": "1 bowl",
-            "multiplier": 1.0
-          },
-          {
-            "label": "Large bowl",
-            "multiplier": 1.4
-          }
+          { "label": "Small bowl", "multiplier": 0.7 },
+          { "label": "1 bowl", "multiplier": 1.0 },
+          { "label": "Large bowl", "multiplier": 1.4 }
         ],
         "default": 1
       },
       "bowl_side": {
         "label": "Side dish",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "Small serve",
-            "multiplier": 0.7
-          },
-          {
-            "label": "1 serve",
-            "multiplier": 1.0
-          },
-          {
-            "label": "Large serve",
-            "multiplier": 1.4
-          }
+          { "label": "Small serve", "multiplier": 0.7 },
+          { "label": "1 serve", "multiplier": 1.0 },
+          { "label": "Large serve", "multiplier": 1.4 }
         ],
         "default": 1
       },
       "spoon_condiment": {
         "label": "Condiment / Spoon",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "1 tsp",
-            "multiplier": 0.4
-          },
-          {
-            "label": "1 tbsp",
-            "multiplier": 1.0
-          },
-          {
-            "label": "2 tbsp",
-            "multiplier": 2.0
-          }
+          { "label": "1 tsp", "multiplier": 0.4 },
+          { "label": "1 tbsp", "multiplier": 1.0 },
+          { "label": "2 tbsp", "multiplier": 2.0 }
         ],
         "default": 1
       },
       "whole_meal": {
         "label": "Whole item / serving",
+        "input_type": "chips",
         "options": [
-          {
-            "label": "Half",
-            "multiplier": 0.5
-          },
-          {
-            "label": "1 serving",
-            "multiplier": 1.0
-          },
-          {
-            "label": "Large",
-            "multiplier": 1.4
-          }
+          { "label": "Half", "multiplier": 0.5 },
+          { "label": "1 serving", "multiplier": 1.0 },
+          { "label": "Large", "multiplier": 1.4 }
         ],
         "default": 1
       }
@@ -307,7 +177,7 @@
       "archetype": "pcs_small"
     },
     "Ayam_Bakar": {
-      "display_name": "Ayam Bakar",
+      "display_name": "Grilled Chicken",
       "category": "component",
       "base_calories": 220,
       "cooking_modifier": 1.05,
@@ -323,7 +193,7 @@
       "archetype": "pcs_chicken"
     },
     "Ayam_Goreng": {
-      "display_name": "Ayam Goreng",
+      "display_name": "Fried Chicken",
       "category": "component",
       "base_calories": 280,
       "cooking_modifier": 1.25,
@@ -453,7 +323,7 @@
     "Char_Kway_Teow": {
       "display_name": "Char Kway Teow",
       "category": "whole_dish",
-      "base_calories": 570,
+      "base_calories": 545,
       "cooking_modifier": 1.2,
       "description": "Stir fried flat rice noodles, high oil content",
       "protein_g": 18,
@@ -467,7 +337,7 @@
       "archetype": "noodle_plate"
     },
     "Daging_Bakar": {
-      "display_name": "Daging Bakar",
+      "display_name": "Grilled Beef",
       "category": "component",
       "base_calories": 250,
       "cooking_modifier": 1.05,
@@ -499,7 +369,7 @@
       "archetype": "bowl_curry"
     },
     "Ikan_Bilis_Goreng": {
-      "display_name": "Ikan Bilis Goreng",
+      "display_name": "Fried Anchovies",
       "category": "component",
       "base_calories": 110,
       "cooking_modifier": 1.2,
@@ -515,7 +385,7 @@
       "archetype": "spoon_condiment"
     },
     "Ikan_Goreng": {
-      "display_name": "Ikan Goreng",
+      "display_name": "Fried Fish",
       "category": "component",
       "base_calories": 230,
       "cooking_modifier": 1.25,
@@ -531,7 +401,7 @@
       "archetype": "pcs_chicken"
     },
     "Kacang_Goreng": {
-      "display_name": "Kacang Goreng",
+      "display_name": "Fried Peanuts",
       "category": "component",
       "base_calories": 130,
       "cooking_modifier": 1.1,
@@ -547,7 +417,7 @@
       "archetype": "cup_snack"
     },
     "Kangkung_Goreng": {
-      "display_name": "Kangkung Goreng",
+      "display_name": "Stir-fried Kangkung",
       "category": "component",
       "base_calories": 80,
       "cooking_modifier": 1.1,
@@ -595,7 +465,7 @@
       "archetype": "slice_bread"
     },
     "Keli_Goreng": {
-      "display_name": "Keli Goreng",
+      "display_name": "Fried Catfish",
       "category": "component",
       "base_calories": 240,
       "cooking_modifier": 1.25,
@@ -611,14 +481,14 @@
       "archetype": "pcs_chicken"
     },
     "Kentang": {
-      "display_name": "Kentang",
+      "display_name": "Potato (Masak Lemak)",
       "category": "component",
-      "base_calories": 120,
-      "cooking_modifier": 1.0,
-      "description": "Potato, preparation varies \u2014 baseline boiled/steamed",
+      "base_calories": 185,
+      "cooking_modifier": 1.1,
+      "description": "Potato cooked in coconut milk curry (masak lemak), standard bowl",
       "protein_g": 3,
-      "carbs_g": 26,
-      "fat_g": 1,
+      "carbs_g": 22,
+      "fat_g": 9,
       "portion_labels": {
         "S": "Half bowl",
         "M": "1 bowl",
@@ -629,7 +499,7 @@
     "Kway_Teow_Goreng": {
       "display_name": "Kway Teow Goreng",
       "category": "whole_dish",
-      "base_calories": 520,
+      "base_calories": 510,
       "cooking_modifier": 1.15,
       "description": "Fried flat rice noodles, slightly less oil than Char Kway Teow",
       "protein_g": 15,
@@ -675,7 +545,7 @@
       "archetype": "grain_rice"
     },
     "Nasi_Goreng": {
-      "display_name": "Nasi Goreng",
+      "display_name": "Fried Rice",
       "category": "whole_dish",
       "base_calories": 530,
       "cooking_modifier": 1.15,
@@ -755,7 +625,7 @@
       "archetype": "grain_rice"
     },
     "Nasi_Putih": {
-      "display_name": "Nasi Putih",
+      "display_name": "White Rice",
       "category": "component",
       "base_calories": 260,
       "cooking_modifier": 1.0,
@@ -771,7 +641,7 @@
       "archetype": "grain_rice"
     },
     "Paru_Goreng": {
-      "display_name": "Paru Goreng",
+      "display_name": "Fried Beef Lung",
       "category": "component",
       "base_calories": 200,
       "cooking_modifier": 1.25,
@@ -779,12 +649,7 @@
       "protein_g": 22,
       "carbs_g": 4,
       "fat_g": 11,
-      "portion_labels": {
-        "S": "Small serve",
-        "M": "1 serve",
-        "L": "Large serve"
-      },
-      "archetype": "pcs_small"
+      "archetype": "bowl_side"
     },
     "Patin_Tempoyak": {
       "display_name": "Patin Tempoyak",
@@ -803,7 +668,7 @@
       "archetype": "bowl_curry"
     },
     "Pisang_Goreng": {
-      "display_name": "Pisang Goreng",
+      "display_name": "Fried Banana",
       "category": "snack",
       "base_calories": 150,
       "cooking_modifier": 1.2,
@@ -835,7 +700,7 @@
       "archetype": "slice_pizza"
     },
     "Popia_Goreng": {
-      "display_name": "Popia Goreng",
+      "display_name": "Fried Spring Roll",
       "category": "snack",
       "base_calories": 130,
       "cooking_modifier": 1.2,
@@ -875,12 +740,7 @@
       "protein_g": 7,
       "carbs_g": 42,
       "fat_g": 12,
-      "portion_labels": {
-        "S": "Half roti",
-        "M": "1 roti",
-        "L": "1.5 roti"
-      },
-      "archetype": "whole_meal"
+      "archetype": "pcs_small"
     },
     "Sambal": {
       "display_name": "Sambal",
@@ -963,7 +823,7 @@
       "archetype": "whole_meal"
     },
     "Telur_Dadar": {
-      "display_name": "Telur Dadar",
+      "display_name": "Omelette",
       "category": "component",
       "base_calories": 130,
       "cooking_modifier": 1.15,
@@ -979,7 +839,7 @@
       "archetype": "whole_meal"
     },
     "Telur_Goreng": {
-      "display_name": "Telur Goreng",
+      "display_name": "Fried Egg",
       "category": "component",
       "base_calories": 110,
       "cooking_modifier": 1.15,
@@ -995,7 +855,7 @@
       "archetype": "pcs_egg"
     },
     "Telur_Masin": {
-      "display_name": "Telur Masin",
+      "display_name": "Salted Egg",
       "category": "component",
       "base_calories": 80,
       "cooking_modifier": 1.0,
@@ -1011,7 +871,7 @@
       "archetype": "pcs_egg"
     },
     "Telur_Rebus": {
-      "display_name": "Telur Rebus",
+      "display_name": "Boiled Egg",
       "category": "component",
       "base_calories": 70,
       "cooking_modifier": 1.0,
@@ -1027,7 +887,7 @@
       "archetype": "pcs_egg"
     },
     "Tempe_Goreng": {
-      "display_name": "Tempe Goreng",
+      "display_name": "Fried Tempeh",
       "category": "component",
       "base_calories": 160,
       "cooking_modifier": 1.2,
@@ -1035,43 +895,28 @@
       "protein_g": 11,
       "carbs_g": 10,
       "fat_g": 8,
-      "portion_labels": {
-        "S": "Small serve",
-        "M": "1 serve",
-        "L": "Large serve"
-      },
-      "archetype": "pcs_small"
+      "archetype": "bowl_side"
     },
     "Timun": {
-      "display_name": "Timun",
+      "display_name": "Cucumber",
       "category": "component",
       "base_calories": 15,
       "cooking_modifier": 1.0,
-      "description": "Fresh cucumber slices, standard serving",
+      "description": "Fresh cucumber slices, per piece",
       "protein_g": 1,
       "carbs_g": 3,
       "fat_g": 0,
-      "portion_labels": {
-        "S": "Few slices",
-        "M": "1 serve",
-        "L": "Large serve"
-      },
-      "archetype": "slice_thin"
+      "archetype": "pcs_small"
     },
     "Udang": {
-      "display_name": "Udang",
+      "display_name": "Prawns",
       "category": "component",
-      "base_calories": 120,
+      "base_calories": 24,
       "cooking_modifier": 1.1,
-      "description": "Prawns, preparation varies \u2014 baseline is cooked/stir fried",
-      "protein_g": 18,
-      "carbs_g": 3,
-      "fat_g": 3,
-      "portion_labels": {
-        "S": "3 pieces",
-        "M": "5 pieces",
-        "L": "8 pieces"
-      },
+      "description": "Prawns, cooked/stir fried \u2014 per prawn",
+      "protein_g": 3.6,
+      "carbs_g": 0.6,
+      "fat_g": 0.6,
       "archetype": "pcs_small"
     }
   }

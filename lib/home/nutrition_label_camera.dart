@@ -1,15 +1,20 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:camera/camera.dart';
-import 'package:calscan/logic/crud_records.dart';
-import 'package:calscan/logic/nutrition_label_parser.dart';
-import 'package:calscan/logic/offline_write.dart';
-import 'package:calscan/logic/saved_food_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+import 'package:calscan/logic/nutrition_label_parser.dart';
+import 'package:calscan/logic/crud_records.dart';
+import 'package:calscan/logic/offline_write.dart';
+
+const _kOrange = Color(0xFFFF7E00);
+
+/// Full-screen camera that captures a nutrition label, runs OCR, and routes
+/// to a confirmation page where the user names the food and saves it.
 class NutritionLabelCameraPage extends StatefulWidget {
   const NutritionLabelCameraPage({super.key});
 
@@ -20,9 +25,9 @@ class NutritionLabelCameraPage extends StatefulWidget {
 
 class _NutritionLabelCameraPageState extends State<NutritionLabelCameraPage> {
   CameraController? _controller;
-  final _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-  bool _isInitializing = true;
+  final TextRecognizer _recognizer = TextRecognizer();
   bool _isProcessing = false;
+  bool _isInitializing = true;
   String? _errorMessage;
 
   @override
@@ -32,29 +37,33 @@ class _NutritionLabelCameraPageState extends State<NutritionLabelCameraPage> {
   }
 
   Future<void> _initialize() async {
+    if (mounted) {
+      setState(() {
+        _isInitializing = true;
+        _errorMessage = null;
+      });
+    }
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
         throw StateError('No camera was found on this device.');
       }
-
       final controller = CameraController(
         cameras.first,
-        ResolutionPreset.max,
+        ResolutionPreset.high,
         enableAudio: false,
       );
       await controller.initialize();
-
       if (!mounted) {
         await controller.dispose();
         return;
       }
       _controller = controller;
       setState(() => _isInitializing = false);
-    } on CameraException catch (error) {
-      _setError(error.description ?? 'The camera could not be initialized.');
-    } catch (error) {
-      _setError(error.toString().replaceFirst('Bad state: ', ''));
+    } on CameraException catch (e) {
+      _setError(e.description ?? 'The camera could not be initialized.');
+    } catch (e) {
+      _setError(e.toString().replaceFirst('Bad state: ', ''));
     }
   }
 
@@ -69,37 +78,39 @@ class _NutritionLabelCameraPageState extends State<NutritionLabelCameraPage> {
   @override
   void dispose() {
     _controller?.dispose();
-    unawaited(_textRecognizer.close());
+    unawaited(_recognizer.close());
     super.dispose();
   }
 
-  Future<void> _captureLabel() async {
+  Future<void> _handleCapture() async {
     final controller = _controller;
     if (_isProcessing ||
         controller == null ||
         !controller.value.isInitialized) {
       return;
     }
-
-    setState(() => _isProcessing = true);
     try {
-      final photo = await controller.takePicture();
-      final recognized = await _textRecognizer.processImage(
-        InputImage.fromFilePath(photo.path),
-      );
+      setState(() => _isProcessing = true);
+      final image = await controller.takePicture();
+      final inputImage = InputImage.fromFilePath(image.path);
+      final recognized = await _recognizer.processImage(inputImage);
       final estimate = parseNutritionLabel(recognized.text);
 
-      if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => NutritionLabelResultPage(estimate: estimate),
-        ),
-      );
-    } catch (error) {
+      if (mounted) {
+        await Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _NutritionLabelResultPage(
+              imageFile: File(image.path),
+              estimate: estimate,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to read this label: $error')),
+          SnackBar(content: Text('Could not read label: $e')),
         );
       }
     } finally {
@@ -107,174 +118,194 @@ class _NutritionLabelCameraPageState extends State<NutritionLabelCameraPage> {
     }
   }
 
-  Widget _buildCameraPreview() {
-    final controller = _controller!;
-    final previewSize = controller.value.previewSize;
-    if (previewSize == null) return CameraPreview(controller);
-
-    return Positioned.fill(
-      child: ClipRect(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: previewSize.height,
-            height: previewSize.width,
-            child: CameraPreview(controller),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Nutrition Label')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(_errorMessage!, textAlign: TextAlign.center),
-          ),
-        ),
-      );
-    }
+    if (_errorMessage != null) return _buildErrorState();
     if (_isInitializing || _controller == null) {
       return const Scaffold(
         backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF7E00))),
+        body: Center(
+          child: CircularProgressIndicator(color: _kOrange),
+        ),
       );
     }
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
-        fit: StackFit.expand,
         children: [
-          _buildCameraPreview(),
-          CustomPaint(painter: const _LabelFramePainter()),
+          Positioned.fill(child: CameraPreview(_controller!)),
+          _buildScanFrame(),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Row(
-                  children: [
-                    IconButton.filled(
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black54,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back),
-                    ),
-                    const Spacer(),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.all(Radius.circular(999)),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        child: Text(
-                          'Nutrition Label',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back,
+                    color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
               ),
             ),
           ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                margin: const EdgeInsets.all(18),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(22),
+          Positioned(
+            bottom: 60,
+            left: 0,
+            right: 0,
+            child: Column(
+              children: [
+                Text(
+                  _isProcessing
+                      ? 'Reading label…'
+                      : 'Align the nutrition panel in the frame',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Fill the frame with the nutrition panel. Keep the label flat and well-lit.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, height: 1.35),
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: _isProcessing ? null : _handleCapture,
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      border: Border.all(color: _kOrange, width: 4),
                     ),
-                    const SizedBox(height: 14),
-                    FilledButton.icon(
-                      onPressed: _isProcessing ? null : _captureLabel,
-                      icon: _isProcessing
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.document_scanner_outlined),
-                      label: Text(
-                        _isProcessing ? 'Reading label...' : 'Capture Label',
-                      ),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
-                        backgroundColor: const Color(0xFFFF7E00),
-                      ),
-                    ),
-                  ],
+                    child: _isProcessing
+                        ? const Padding(
+                            padding: EdgeInsets.all(18),
+                            child: CircularProgressIndicator(
+                              color: _kOrange,
+                              strokeWidth: 3,
+                            ),
+                          )
+                        : const Icon(Icons.document_scanner,
+                            color: _kOrange, size: 32),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildScanFrame() {
+    return Center(
+      child: Container(
+        width: 280,
+        height: 360,
+        decoration: BoxDecoration(
+          border: Border.all(color: _kOrange, width: 3),
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.no_photography_outlined,
+                  color: Colors.white54, size: 56),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _initialize,
+                style: ElevatedButton.styleFrom(backgroundColor: _kOrange),
+                child: const Text('Retry',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class NutritionLabelResultPage extends StatefulWidget {
+// ── Result / confirmation page ─────────────────────────────────────────────────
+
+class _NutritionLabelResultPage extends StatefulWidget {
+  final File imageFile;
   final NutritionLabelEstimate estimate;
 
-  const NutritionLabelResultPage({super.key, required this.estimate});
+  const _NutritionLabelResultPage({
+    required this.imageFile,
+    required this.estimate,
+  });
 
   @override
-  State<NutritionLabelResultPage> createState() =>
+  State<_NutritionLabelResultPage> createState() =>
       _NutritionLabelResultPageState();
 }
 
-class _NutritionLabelResultPageState extends State<NutritionLabelResultPage> {
-  final _recordService = RecordService();
-  final _savedFoodService = SavedFoodService();
+class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
+  final RecordService _records = RecordService();
+
   late final TextEditingController _nameController;
   late final TextEditingController _caloriesController;
   late final TextEditingController _servingController;
-  late final TextEditingController _quantityController;
-  late CalorieBasis _calorieBasis;
-  bool _isSaving = false;
+  late final TextEditingController _weightController;
+
+  DateTime _timestamp = DateTime.now();
+  bool _saving = false;
+  bool _showRawText = false;
+  // Whether calories were last set by the weight calculator (vs manual entry).
+  bool _calFromWeight = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.estimate.productName);
+    final est = widget.estimate;
+    _nameController = TextEditingController();
     _caloriesController = TextEditingController(
-      text: widget.estimate.calories?.round().toString() ?? '',
+      text: est.calories == null ? '' : est.calories!.round().toString(),
     );
-    _servingController = TextEditingController(text: widget.estimate.serving);
-    _quantityController = TextEditingController(
-      text: widget.estimate.calorieBasis == CalorieBasis.per100g ? '100' : '1',
-    );
-    _calorieBasis = widget.estimate.calorieBasis;
+    _servingController = TextEditingController(text: est.serving);
+    _weightController = TextEditingController();
+    _weightController.addListener(_onWeightChanged);
+  }
+
+  void _onWeightChanged() {
+    final per100g = widget.estimate.caloriesPer100g;
+    if (per100g == null || per100g <= 0) return;
+    final grams = double.tryParse(_weightController.text);
+    if (grams == null || grams <= 0) {
+      // User cleared the weight — restore original per-serving value.
+      if (_calFromWeight) {
+        final original = widget.estimate.calories;
+        _caloriesController.text =
+            original == null ? '' : original.round().toString();
+        _calFromWeight = false;
+      }
+      return;
+    }
+    final computed = (grams / 100.0) * per100g;
+    _calFromWeight = true;
+    _caloriesController.text = computed.round().toString();
   }
 
   @override
@@ -282,354 +313,274 @@ class _NutritionLabelResultPageState extends State<NutritionLabelResultPage> {
     _nameController.dispose();
     _caloriesController.dispose();
     _servingController.dispose();
-    _quantityController.dispose();
+    _weightController.dispose();
     super.dispose();
   }
 
-  double get _baseCalories =>
-      double.tryParse(_caloriesController.text.trim()) ?? 0;
-
-  double get _quantity => double.tryParse(_quantityController.text.trim()) ?? 0;
-
-  double get _totalCalories {
-    if (_calorieBasis == CalorieBasis.per100g) {
-      return _baseCalories * _quantity / 100;
-    }
-    return _baseCalories * _quantity;
-  }
-
-  String get _quantityLabel {
-    switch (_calorieBasis) {
-      case CalorieBasis.per100g:
-        return 'Amount eaten';
-      case CalorieBasis.perPackage:
-        return 'Packages eaten';
-      case CalorieBasis.perServing:
-      case CalorieBasis.unknown:
-        return 'Servings eaten';
-    }
-  }
-
-  String? get _quantitySuffix =>
-      _calorieBasis == CalorieBasis.per100g ? 'g' : null;
-
-  void _selectSavedFood(SavedPackagedFood food) {
+  Future<void> _pickDateTime() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _timestamp,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_timestamp),
+    );
+    if (!mounted) return;
     setState(() {
-      _nameController.text = food.name;
-      _caloriesController.text = _formatNumber(food.calories);
-      _servingController.text = food.serving;
-      _calorieBasis = food.calorieBasis;
-      _quantityController.text = food.calorieBasis == CalorieBasis.per100g
-          ? '100'
-          : '1';
+      _timestamp = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time?.hour ?? _timestamp.hour,
+        time?.minute ?? _timestamp.minute,
+      );
     });
   }
 
   Future<void> _save() async {
     final name = _nameController.text.trim();
-    final serving = _servingController.text.trim();
-    if (name.isEmpty || _baseCalories <= 0 || _quantity <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Confirm the name, calories, and amount eaten.'),
-        ),
-      );
+    final calories = double.tryParse(_caloriesController.text.trim());
+
+    if (name.isEmpty) {
+      _toast('Please enter a food name.');
+      return;
+    }
+    if (calories == null || calories <= 0) {
+      _toast('Please enter a valid calorie value.');
       return;
     }
 
-    setState(() => _isSaving = true);
-    try {
-      final portion = _calorieBasis == CalorieBasis.per100g
-          ? '${_formatNumber(_quantity)} g'
-          : '${_formatNumber(_quantity)} ${_calorieBasis == CalorieBasis.perPackage ? 'package' : 'serving'}${_quantity == 1 ? '' : 's'}';
-      final mealStatus = await _recordService.addMeal({
-        'mealName': name,
-        'calories': _totalCalories,
-        'protein': 0.0,
-        'carbs': 0.0,
-        'fat': 0.0,
-        'portion': portion,
-        'source': 'nutrition_label',
-        'items': [
-          {
-            'name': name,
-            'serving': portion,
-            'calories': _totalCalories,
-            'calorieBasis': _calorieBasis.name,
-            'baseCalories': _baseCalories,
-          },
-        ],
-        'timestamp': Timestamp.now(),
-      });
-      final savedFoodStatus = await _savedFoodService.savePackagedFood(
-        name: name,
-        calories: _baseCalories,
-        calorieBasis: _calorieBasis,
-        serving: serving.isEmpty ? _calorieBasis.label : serving,
-      );
+    setState(() => _saving = true);
 
+    // Build a serving description that includes weight when the user entered one.
+    final weightGrams = double.tryParse(_weightController.text.trim());
+    final servingDesc = weightGrams != null && weightGrams > 0
+        ? '${weightGrams.toStringAsFixed(0)} g'
+        : _servingController.text.trim();
+
+    final mealData = <String, dynamic>{
+      'mealName': name,
+      'calories': calories.round(),
+      'items': [
+        {
+          'key': null,
+          'name': name,
+          'calories': calories.roundToDouble(),
+          'serving': servingDesc,
+          'isCustom': true,
+        }
+      ],
+      'serving': servingDesc,
+      'timestamp': Timestamp.fromDate(_timestamp),
+      'source': 'label_ocr',
+    };
+
+    try {
+      final status = await _records.addMeal(mealData);
       if (!mounted) return;
-      final queued =
-          mealStatus == FirestoreWriteStatus.queued ||
-          savedFoodStatus == FirestoreWriteStatus.queued;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            queued
-                ? 'Saved offline. Syncs when online.'
-                : 'Packaged food added.',
-          ),
-        ),
+      Navigator.pop(context);
+      _toast(
+        status == FirestoreWriteStatus.queued
+            ? 'Saved offline — will sync when online.'
+            : 'Food logged.',
       );
-      Navigator.of(context)
-        ..pop()
-        ..pop();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to save this record: $error')),
-      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        _toast('Could not save: $e');
+      }
     }
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final est = widget.estimate;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Review Label')),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('Confirm Label'),
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+      ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        padding: const EdgeInsets.all(16),
         children: [
-          // ── Hero: live total intake ──────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF7E00), Color(0xFFFF4B2B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF4B2B).withValues(alpha: 0.28),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.local_fire_department_rounded,
-                        color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text('Estimated intake',
-                        style: TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      '${_totalCalories.round()}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 44,
-                        fontWeight: FontWeight.bold,
-                        height: 1,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 6),
-                      child: Text('kcal',
-                          style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
-              ],
+          // Captured image preview
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.file(
+              widget.imageFile,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
             ),
           ),
+          const SizedBox(height: 8),
+
+          // Detected-calories banner
+          _buildDetectedBanner(theme, est),
           const SizedBox(height: 20),
 
-          // ── Saved foods quick-pick ───────────────────────────────────────
-          StreamBuilder<List<SavedPackagedFood>>(
-            stream: _savedFoodService.watchPackagedFoods(),
-            builder: (context, snapshot) {
-              final foods = snapshot.data ?? const <SavedPackagedFood>[];
-              if (foods.isEmpty) return const SizedBox.shrink();
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionLabel(theme, 'Use a saved food'),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 42,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: foods.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final food = foods[index];
-                        return ActionChip(
-                          avatar: const Icon(Icons.history, size: 17),
-                          label: Text(food.name),
-                          onPressed: () => _selectSavedFood(food),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              );
-            },
-          ),
-
-          // ── Name ─────────────────────────────────────────────────────────
-          _sectionLabel(theme, 'Product'),
-          const SizedBox(height: 8),
+          // Editable fields
+          const Text('Food name',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 6),
           TextField(
             controller: _nameController,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              hintText: 'Type the product name',
-              prefixIcon: Icon(Icons.inventory_2_outlined),
-            ),
+            decoration: _fieldDecoration(theme, 'e.g. Chocolate biscuits'),
+            textCapitalization: TextCapitalization.sentences,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-          // ── Calorie basis as chips ───────────────────────────────────────
-          _sectionLabel(theme, 'The label states calories…'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: CalorieBasis.values.map((basis) {
-              final selected = basis == _calorieBasis;
-              return ChoiceChip(
-                label: Text(basis.label),
-                selected: selected,
-                onSelected: (_) {
-                  setState(() {
-                    _calorieBasis = basis;
-                    _quantityController.text =
-                        basis == CalorieBasis.per100g ? '100' : '1';
-                  });
-                },
-                selectedColor: const Color(0xFFFF7E00),
-                labelStyle: TextStyle(
-                  color: selected ? Colors.white : theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-                showCheckmark: false,
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
-
-          // ── Calories + quantity ──────────────────────────────────────────
-          _sectionLabel(theme, 'Numbers'),
-          const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: TextField(
-                  controller: _caloriesController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [_numberFormatter],
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Label calories',
-                    suffixText: 'kcal',
-                    prefixIcon: Icon(Icons.local_fire_department_outlined),
-                    helperText: 'Edit if OCR misread it',
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Calories',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _caloriesController,
+                      keyboardType: TextInputType.number,
+                      decoration: _fieldDecoration(theme, '0')
+                          .copyWith(suffixText: 'kcal'),
+                      onChanged: (_) => _calFromWeight = false,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextField(
-                  controller: _quantityController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [_numberFormatter],
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: _quantityLabel,
-                    suffixText: _quantitySuffix,
-                    prefixIcon: const Icon(Icons.scale_outlined),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Serving',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _servingController,
+                      decoration: _fieldDecoration(theme, '1 serving'),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _servingController,
-            decoration: const InputDecoration(
-              labelText: 'Serving note (optional)',
-              hintText: 'Example: 1 cup (75 g)',
-              prefixIcon: Icon(Icons.notes_outlined),
+
+          // Net weight → auto-calculates calories using per-100g rate when known.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('Net weight eaten',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(width: 6),
+                  if (est.caloriesPer100g != null)
+                    Text(
+                      '(auto-calculates calories)',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _weightController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: _fieldDecoration(theme, 'e.g. 145')
+                    .copyWith(suffixText: 'g'),
+              ),
+              if (est.caloriesPer100g != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Label rate: ${est.caloriesPer100g!.round()} kcal per 100 g',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Date / time
+          InkWell(
+            onTap: _pickDateTime,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.schedule, color: _kOrange, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    DateFormat('MMM d, yyyy • h:mm a').format(_timestamp),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  const Icon(Icons.edit, size: 16, color: Colors.grey),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
 
-          // ── Raw OCR text ─────────────────────────────────────────────────
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            shape: const Border(),
-            collapsedShape: const Border(),
-            leading: const Icon(Icons.text_snippet_outlined),
-            title: const Text('Recognized label text'),
-            subtitle: const Text('Open to check an OCR mistake'),
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHigh,
+          // Raw OCR text (collapsible)
+          if (est.rawText.isNotEmpty) _buildRawTextSection(theme, est),
+
+          const SizedBox(height: 24),
+
+          SizedBox(
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _saving ? null : _save,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kOrange,
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: SelectableText(
-                  widget.estimate.rawText.isEmpty
-                      ? 'No readable text was found.'
-                      : widget.estimate.rawText,
-                  style: const TextStyle(fontSize: 13, height: 1.4),
-                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: _isSaving ? null : _save,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+              child: _saving
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'Log This Food',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
-                  )
-                : const Icon(Icons.add_task),
-            label: Text(_isSaving ? 'Saving...' : 'Add to Records'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(54),
-              backgroundColor: const Color(0xFFFF7E00),
             ),
           ),
         ],
@@ -637,53 +588,102 @@ class _NutritionLabelResultPageState extends State<NutritionLabelResultPage> {
     );
   }
 
-  Widget _sectionLabel(ThemeData theme, String text) => Text(
-        text,
-        style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      );
-}
-
-final _numberFormatter = FilteringTextInputFormatter.allow(
-  RegExp(r'^\d*\.?\d*'),
-);
-
-String _formatNumber(double value) {
-  return value == value.roundToDouble()
-      ? value.round().toString()
-      : value.toStringAsFixed(1);
-}
-
-class _LabelFramePainter extends CustomPainter {
-  const _LabelFramePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final frame = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        size.width * 0.07,
-        size.height * 0.18,
-        size.width * 0.86,
-        size.height * 0.48,
+  Widget _buildDetectedBanner(ThemeData theme, NutritionLabelEstimate est) {
+    final hasCalories = est.calories != null;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: hasCalories
+            ? _kOrange.withValues(alpha: 0.1)
+            : Colors.grey.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
       ),
-      const Radius.circular(20),
-    );
-    final overlay = Path()
-      ..addRect(Offset.zero & size)
-      ..addRRect(frame)
-      ..fillType = PathFillType.evenOdd;
-    canvas.drawPath(overlay, Paint()..color = Colors.black45);
-    canvas.drawRRect(
-      frame,
-      Paint()
-        ..color = const Color(0xFFFF7E00)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
+      child: Row(
+        children: [
+          Icon(
+            hasCalories ? Icons.check_circle : Icons.help_outline,
+            color: hasCalories ? _kOrange : Colors.grey,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasCalories
+                      ? 'Detected ${est.calories!.round()} kcal'
+                      : 'No calorie value detected',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hasCalories
+                      ? est.calorieBasis.label
+                      : 'Enter the value manually below',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                if (est.caloriesPer100g != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Also detected: ${est.caloriesPer100g!.round()} kcal per 100 g',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  Widget _buildRawTextSection(ThemeData theme, NutritionLabelEstimate est) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+          title: const Text(
+            'Raw scanned text',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          onExpansionChanged: (v) => setState(() => _showRawText = v),
+          trailing: Icon(
+            _showRawText ? Icons.expand_less : Icons.expand_more,
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Text(
+                est.rawText,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration(ThemeData theme, String hint) {
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: theme.colorScheme.surfaceContainerHigh,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
 }

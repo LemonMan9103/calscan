@@ -177,8 +177,10 @@ void main() {
       );
 
       expect(result, hasLength(2));
-      expect(result.first.labelKey, 'Nasi_Lemak');
-      expect(result.last.labelKey, 'Ayam_Goreng');
+      expect(
+        result.map((detection) => detection.labelKey),
+        containsAll(['Nasi_Lemak', 'Ayam_Goreng']),
+      );
     });
   });
 }

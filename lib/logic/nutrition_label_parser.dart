@@ -19,6 +19,8 @@ class NutritionLabelEstimate {
   final String productName;
   final double? calories;
   final double? caloriesPer100g;
+  final double? servingSize;
+  final double? servingsPerPackage;
   final CalorieBasis calorieBasis;
   final String serving;
   final String rawText;
@@ -27,6 +29,8 @@ class NutritionLabelEstimate {
     required this.productName,
     required this.calories,
     this.caloriesPer100g,
+    this.servingSize,
+    this.servingsPerPackage,
     required this.calorieBasis,
     required this.serving,
     required this.rawText,
@@ -41,11 +45,15 @@ NutritionLabelEstimate parseNutritionLabel(String rawText) {
       .toList();
   final calorieResult = _findCalories(lines);
   final per100gResult = _findBasisCalories(lines, CalorieBasis.per100g);
+  final servingSize = _findServingSize(lines);
+  final servingsPerPackage = _findServingsPerPackage(lines);
 
   return NutritionLabelEstimate(
     productName: _findProductName(lines),
     calories: calorieResult.calories,
     caloriesPer100g: per100gResult?.calories,
+    servingSize: servingSize,
+    servingsPerPackage: servingsPerPackage,
     calorieBasis: calorieResult.basis,
     serving: _findServing(lines),
     rawText: rawText.trim(),
@@ -182,6 +190,57 @@ String _findServing(List<String> lines) {
     }
   }
   return '1 serving';
+}
+
+double? _findServingSize(List<String> lines) {
+  final labeledServingSize = RegExp(r'\bserving size\b', caseSensitive: false);
+  final measuredValue = RegExp(
+    r'(\d{1,5}(?:[.,]\d+)?)\s*(?:g|gram|grams|ml|mL)\b',
+    caseSensitive: false,
+  );
+  final fallbackNumber = RegExp(r'(\d{1,5}(?:[.,]\d+)?)');
+
+  for (final line in lines) {
+    final lower = line.toLowerCase();
+    if (lower.contains('servings per')) continue;
+    if (!labeledServingSize.hasMatch(line)) continue;
+
+    // get real grams/ml, not "1" from "1 bar (40g)"
+    final measured = measuredValue.allMatches(line).toList();
+    if (measured.isNotEmpty) {
+      final value = _parseNumber(measured.last.group(1));
+      if (value != null) return value;
+    }
+
+    final fallback = fallbackNumber.firstMatch(line);
+    final value = _parseNumber(fallback?.group(1));
+    if (value != null) return value;
+  }
+
+  return null;
+}
+
+double? _findServingsPerPackage(List<String> lines) {
+  final patterns = [
+    RegExp(
+      r'\bservings?\s+per\s+(?:package|pack|container)\b[^0-9]*(\d{1,3}(?:[.,]\d+)?)',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\babout\s+(\d{1,3}(?:[.,]\d+)?)\s+servings?\b',
+      caseSensitive: false,
+    ),
+  ];
+
+  for (final line in lines) {
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(line);
+      final value = _parseNumber(match?.group(1));
+      if (value != null) return value;
+    }
+  }
+
+  return null;
 }
 
 String _findProductName(List<String> lines) {

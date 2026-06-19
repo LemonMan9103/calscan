@@ -1,3 +1,4 @@
+import 'package:calscan/admin/admin_dashboard_page.dart';
 import 'package:flutter/material.dart';
 import 'package:calscan/profile/profile_setup.dart';
 import 'package:calscan/profile/login_page.dart';
@@ -12,8 +13,10 @@ class SettingsPage extends StatelessWidget {
   final int age;
   final double weight;
   final double height;
+  final String gender;
   final String activityLevel;
   final String goal;
+  final bool isAdmin;
 
   const SettingsPage({
     super.key,
@@ -23,8 +26,10 @@ class SettingsPage extends StatelessWidget {
     required this.age,
     required this.weight,
     required this.height,
+    required this.gender,
     required this.activityLevel,
     required this.goal,
+    required this.isAdmin,
   });
 
   Future<void> _logout(BuildContext context) async {
@@ -71,14 +76,18 @@ class SettingsPage extends StatelessWidget {
             const SizedBox(height: 16),
             _buildAppearanceCard(context),
             const SizedBox(height: 16),
+            if (isAdmin) ...[
+              _buildAdminCard(context),
+              const SizedBox(height: 16),
+            ],
             _buildLogoutCard(context),
             const SizedBox(height: 24),
             const Text(
-              'Esti Prototype',
+              'Esti Mobile App',
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const Text(
-              'AI-Powered Calorie Tracking',
+              'Calorie tracking with food and label scanning',
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 20),
@@ -143,7 +152,14 @@ class SettingsPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ProfileSetupPage(),
+                      builder: (context) => ProfileSetupPage(
+                        initialName: userName,
+                        initialAge: age,
+                        initialWeight: weight,
+                        initialHeight: height,
+                        initialGender: gender.isEmpty ? null : gender,
+                        initialActivityLevel: activityLevel,
+                      ),
                     ),
                   );
                 },
@@ -203,6 +219,64 @@ class SettingsPage extends StatelessWidget {
               onChanged: themeController.setDark,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminCard(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminDashboardPage()),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF7E00).withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings_rounded,
+                  color: Color(0xFFFF7E00),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Admin Tools',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Manage Esti food data and model versions',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );

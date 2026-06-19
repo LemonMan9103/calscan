@@ -49,8 +49,10 @@ class _MainWrapperState extends State<MainWrapper> {
   late int _age;
   late double _weight;
   late double _height;
+  late String _gender;
   late String _activityLevel;
   late String _goal;
+  bool _isAdmin = false;
 
   @override
   void initState() {
@@ -66,8 +68,10 @@ class _MainWrapperState extends State<MainWrapper> {
       _age = widget.age!;
       _weight = widget.weight!;
       _height = widget.height!;
+      _gender = '';
       _activityLevel = widget.activityLevel!;
       _goal = widget.goal!;
+      _isAdmin = await FirestoreService().isCurrentUserAdmin();
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -82,8 +86,11 @@ class _MainWrapperState extends State<MainWrapper> {
         _age = data['age'] ?? 25;
         _weight = (data['weight'] as num?)?.toDouble() ?? 65.0;
         _height = (data['height'] as num?)?.toDouble() ?? 170.0;
+        _gender = data['gender'] ?? '';
         _activityLevel = data['activityLevel'] ?? 'Sedentary';
         _goal = data['goal'] ?? 'custom';
+        // only show admin tools if firestore say admin
+        _isAdmin = data['role'] == 'admin';
         if (mounted) setState(() => _isLoading = false);
       } else {
         // Profile missing! Redirect back to setup
@@ -101,8 +108,10 @@ class _MainWrapperState extends State<MainWrapper> {
       _age = 25;
       _weight = 65.0;
       _height = 170.0;
+      _gender = '';
       _activityLevel = 'Sedentary';
       _goal = 'custom';
+      _isAdmin = false;
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -124,8 +133,10 @@ class _MainWrapperState extends State<MainWrapper> {
         age: _age,
         weight: _weight,
         height: _height,
+        gender: _gender,
         activityLevel: _activityLevel,
         goal: _goal,
+        isAdmin: _isAdmin,
       ),
     ];
 
@@ -162,7 +173,7 @@ class _MainWrapperState extends State<MainWrapper> {
                     children: [
                       _buildScanOption(
                         icon: Icons.menu_book_rounded,
-                        label: 'Browse',
+                        label: 'Food Library',
                         colors: const [Color(0xFF30C060), Color(0xFF059669)],
                         onTap: () {
                           _closeScan();
@@ -174,10 +185,10 @@ class _MainWrapperState extends State<MainWrapper> {
                           );
                         },
                       ),
-                      const SizedBox(width: 26),
+                      const SizedBox(width: 18),
                       _buildScanOption(
                         icon: Icons.restaurant_rounded,
-                        label: 'Meal',
+                        label: 'Scan Meal',
                         colors: const [Color(0xFFFF7E00), Color(0xFFFF4B2B)],
                         onTap: () {
                           _closeScan();
@@ -189,10 +200,10 @@ class _MainWrapperState extends State<MainWrapper> {
                           );
                         },
                       ),
-                      const SizedBox(width: 26),
+                      const SizedBox(width: 18),
                       _buildScanOption(
                         icon: Icons.document_scanner_rounded,
-                        label: 'Label',
+                        label: 'Scan Label',
                         colors: const [Color(0xFF6366F1), Color(0xFF8B5CF6)],
                         onTap: () {
                           _closeScan();
@@ -281,9 +292,7 @@ class _MainWrapperState extends State<MainWrapper> {
             ),
             boxShadow: [
               BoxShadow(
-                color: (_scanExpanded
-                        ? Colors.black
-                        : const Color(0xFFFF4B2B))
+                color: (_scanExpanded ? Colors.black : const Color(0xFFFF4B2B))
                     .withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
@@ -313,49 +322,54 @@ class _MainWrapperState extends State<MainWrapper> {
     required List<Color> colors,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: colors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.last.withValues(alpha: 0.45),
-                  blurRadius: 16,
-                  offset: const Offset(0, 5),
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: colors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.last.withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: Colors.white, size: 26),
             ),
-            child: Icon(icon, color: Colors.white, size: 26),
-          ),
-          const SizedBox(height: 7),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.62),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
+            const SizedBox(height: 7),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.62),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -365,22 +379,27 @@ class _MainWrapperState extends State<MainWrapper> {
     final activeColor = Theme.of(context).colorScheme.primary;
     final inactiveColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         if (_scanExpanded) _closeScan();
         setState(() => _selectedIndex = index);
       },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: isSelected ? activeColor : inactiveColor),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isSelected ? activeColor : inactiveColor,
+      child: SizedBox(
+        width: 68,
+        height: 56,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: isSelected ? activeColor : inactiveColor),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isSelected ? activeColor : inactiveColor,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

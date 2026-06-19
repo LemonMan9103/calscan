@@ -112,7 +112,9 @@ class _LoginPageState extends State<LoginPage> {
       if (googleUser == null) return; // user cancelled
       final googleAuth = await googleUser.authentication;
       if (googleAuth.idToken == null) {
-        throw Exception('No ID token returned — check Firebase SHA-1 configuration.');
+        throw Exception(
+          'No ID token returned. Check Firebase SHA-1 configuration.',
+        );
       }
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -121,6 +123,7 @@ class _LoginPageState extends State<LoginPage> {
       await FirebaseAuth.instance.signInWithCredential(credential);
       if (mounted) {
         final profile = await FirestoreService().getUserProfile();
+        if (!mounted) return;
         if (profile != null && profile.exists) {
           Navigator.pushReplacement(
             context,
@@ -155,7 +158,14 @@ class _LoginPageState extends State<LoginPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Enter your email address and we\'ll send you a link to reset your password.',
+              'Enter your email address. If an account exists, we will send the reset link there.',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'If you do not see it, check spam or inbox filters.',
+              style: TextStyle(
+                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -176,7 +186,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Send link'),
+            child: const Text('Confirm'),
           ),
         ],
       ),
@@ -193,7 +203,9 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Password reset email sent. Check your inbox.'),
+          content: Text(
+            'Reset email sent if account exists. Check inbox/spam.',
+          ),
         ),
       );
     } on FirebaseAuthException catch (e) {
@@ -213,68 +225,64 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 22.0),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
-                      const SizedBox(height: 20),
-                      // Logo
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF7E00), Color(0xFFFF4B2B)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.restaurant_menu,
-                          color: Colors.white,
-                          size: 40,
+                      const SizedBox(height: 28),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          'lib/assets/esti_icon.png',
+                          width: 84,
+                          height: 84,
+                          fit: BoxFit.cover,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
                       Text(
                         'Esti',
                         style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
-                        'Your Personal Nutrition Companion',
+                        'Track meals, scan labels, estimate calories.',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 14.5,
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      // Auth Card
+                      const SizedBox(height: 24),
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(20),
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: theme.dividerColor),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
+                              color: Colors.black.withValues(
+                                alpha: theme.brightness == Brightness.dark
+                                    ? 0.28
+                                    : 0.06,
+                              ),
+                              blurRadius: 22,
+                              offset: const Offset(0, 12),
                             ),
                           ],
                         ),
@@ -282,12 +290,11 @@ class _LoginPageState extends State<LoginPage> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Tab Switcher
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surface,
-                                borderRadius: BorderRadius.circular(10),
+                                color: theme.colorScheme.surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               child: Row(
                                 children: [
@@ -298,7 +305,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 18),
                             const Text(
                               'Email',
                               style: TextStyle(
@@ -312,7 +319,7 @@ class _LoginPageState extends State<LoginPage> {
                               hintText: 'you@example.com',
                               icon: Icons.email_outlined,
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                             const Text(
                               'Password',
                               style: TextStyle(
@@ -351,9 +358,6 @@ class _LoginPageState extends State<LoginPage> {
                                   onPressed: _handleForgotPassword,
                                   style: TextButton.styleFrom(
                                     padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                   child: const Text(
                                     'Forgot password?',
@@ -365,12 +369,11 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                               ),
-                            const SizedBox(height: 12),
-                            // Action Button
+                            const SizedBox(height: 16),
                             Container(
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(14),
                                 gradient: const LinearGradient(
                                   colors: [
                                     Color(0xFFFF7E00),
@@ -384,10 +387,10 @@ class _LoginPageState extends State<LoginPage> {
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
+                                    vertical: 15,
                                   ),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
                                 child: _isLoading
@@ -421,38 +424,37 @@ class _LoginPageState extends State<LoginPage> {
                                       ),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                             Row(
                               children: [
-                                Expanded(child: Divider(color: Colors.grey.shade300)),
+                                Expanded(
+                                  child: Divider(color: theme.dividerColor),
+                                ),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
                                   child: Text(
                                     'or',
                                     style: TextStyle(
-                                      color: Colors.grey.shade500,
+                                      color: theme.colorScheme.onSurfaceVariant,
                                       fontSize: 12,
                                     ),
                                   ),
                                 ),
-                                Expanded(child: Divider(color: Colors.grey.shade300)),
+                                Expanded(
+                                  child: Divider(color: theme.dividerColor),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
-                                onPressed: _isLoading ? null : _signInWithGoogle,
-                                icon: Image.asset(
-                                  'assets/google_logo.png',
-                                  height: 18,
-                                  width: 18,
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                    Icons.g_mobiledata,
-                                    size: 20,
-                                    color: Color(0xFF4285F4),
-                                  ),
-                                ),
+                                onPressed: _isLoading
+                                    ? null
+                                    : _signInWithGoogle,
+                                icon: _googleMark(),
                                 label: const Text(
                                   'Continue with Google',
                                   style: TextStyle(
@@ -461,11 +463,14 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 11),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                  foregroundColor: theme.colorScheme.onSurface,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
                                   ),
-                                  side: BorderSide(color: Colors.grey.shade300),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  side: BorderSide(color: theme.dividerColor),
                                 ),
                               ),
                             ),
@@ -530,6 +535,27 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  Widget _googleMark() {
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: const Text(
+        'G',
+        style: TextStyle(
+          color: Color(0xFF4285F4),
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTab(String title, bool isSelected) {
     return GestureDetector(
       onTap: () => setState(() => _isLogin = title == 'Login'),
@@ -573,15 +599,22 @@ class _LoginPageState extends State<LoginPage> {
     bool isPassword = false,
   }) {
     return SizedBox(
-      height: 40,
+      height: 52,
       child: TextField(
         controller: controller,
         obscureText: isPassword && _obscurePassword,
-        style: const TextStyle(fontSize: 14),
+        keyboardType: isPassword
+            ? TextInputType.visiblePassword
+            : TextInputType.emailAddress,
+        textInputAction: TextInputAction.next,
+        autofillHints: isPassword
+            ? const [AutofillHints.password]
+            : const [AutofillHints.email],
+        style: const TextStyle(fontSize: 15),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-          prefixIcon: Icon(icon, color: Colors.grey.shade400, size: 18),
+          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+          prefixIcon: Icon(icon, color: Colors.grey.shade400, size: 20),
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
@@ -603,7 +636,7 @@ class _LoginPageState extends State<LoginPage> {
             borderSide: BorderSide.none,
           ),
           contentPadding: const EdgeInsets.symmetric(
-            vertical: 0,
+            vertical: 14,
             horizontal: 16,
           ),
         ),

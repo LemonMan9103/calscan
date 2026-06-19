@@ -6,6 +6,8 @@ import 'package:calscan/home/scan_result_page.dart';
 import 'package:calscan/logic/recognition_service.dart';
 import 'package:flutter/material.dart';
 
+const _kOrange = Color(0xFFFF7E00);
+
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
 
@@ -24,6 +26,13 @@ class _CameraPageState extends State<CameraPage> {
   void initState() {
     super.initState();
     _initialize();
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    unawaited(_recognitionService.close());
+    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -46,7 +55,9 @@ class _CameraPageState extends State<CameraPage> {
         enableAudio: false,
       );
       await controller.initialize();
+      // load ur food model before camera can scan
       await _recognitionService.loadModel();
+
       if (!_recognitionService.isLoaded) {
         throw StateError(
           _recognitionService.loadError ??
@@ -58,6 +69,7 @@ class _CameraPageState extends State<CameraPage> {
         await controller.dispose();
         return;
       }
+
       _controller = controller;
       setState(() => _isInitializing = false);
     } on CameraException catch (e) {
@@ -87,13 +99,6 @@ class _CameraPageState extends State<CameraPage> {
     }
   }
 
-  @override
-  void dispose() {
-    _controller?.dispose();
-    unawaited(_recognitionService.close());
-    super.dispose();
-  }
-
   Future<void> _handleCapture() async {
     final controller = _controller;
     if (_isProcessing ||
@@ -106,23 +111,22 @@ class _CameraPageState extends State<CameraPage> {
       setState(() => _isProcessing = true);
       final image = await controller.takePicture();
       final imageFile = File(image.path);
+      // model detect food from captured photo
       final detections = await _recognitionService.recognizeFood(imageFile);
 
-      if (mounted) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                ScanResultPage(imageFile: imageFile, detections: detections),
-          ),
-        );
-      }
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              ScanResultPage(imageFile: imageFile, detections: detections),
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Scan failed: $e')));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Scan failed: $e')));
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -134,7 +138,7 @@ class _CameraPageState extends State<CameraPage> {
     if (_isInitializing || _controller == null) {
       return const Scaffold(
         backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator(color: Color(0xFFFF7E00))),
+        body: Center(child: CircularProgressIndicator(color: _kOrange)),
       );
     }
 
@@ -142,65 +146,146 @@ class _CameraPageState extends State<CameraPage> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Positioned.fill(child: CameraPreview(_controller!)),
-          _buildCameraOverlay(),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: IconButton(
-                icon: const Icon(
-                  Icons.arrow_back,
+          Positioned.fill(child: _buildPreview(_controller!)),
+          _buildMealFrame(),
+          _buildTopBar(),
+          _buildCaptureDock(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreview(CameraController controller) {
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) return CameraPreview(controller);
+
+    final screen = MediaQuery.sizeOf(context);
+    var scale = screen.aspectRatio * previewSize.aspectRatio;
+    if (scale < 1) scale = 1 / scale;
+
+    return Transform.scale(
+      scale: scale,
+      child: Center(child: CameraPreview(controller)),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        child: Row(
+          children: [
+            IconButton.filledTonal(
+              tooltip: 'Back',
+              onPressed: () => Navigator.pop(context),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.42),
+              ),
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Scan Meal',
+                style: TextStyle(
                   color: Colors.white,
-                  size: 30,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
                 ),
-                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMealFrame() {
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Center(
+            child: Container(
+              width: 292,
+              height: 292,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.86),
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(28),
               ),
             ),
           ),
-          Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
-            child: Column(
-              children: [
-                Text(
-                  _isProcessing
-                      ? 'Analyzing food...'
-                      : 'Align food within the frame',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                GestureDetector(
-                  onTap: _isProcessing ? null : _handleCapture,
-                  child: Container(
-                    height: 80,
-                    width: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 5),
-                    ),
-                    child: Center(
-                      child: _isProcessing
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Container(
-                              height: 60,
-                              width: 60,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCaptureDock() {
+    final bottom = MediaQuery.of(context).padding.bottom;
+    return Positioned(
+      left: 18,
+      right: 18,
+      bottom: 24 + bottom,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.62),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _isProcessing ? 'Analyzing food...' : 'Center the meal clearly',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'You can adjust portion and save after detection.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: 76,
+              height: 76,
+              child: IconButton.filled(
+                tooltip: 'Capture meal',
+                onPressed: _isProcessing ? null : _handleCapture,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.white70,
+                ),
+                icon: _isProcessing
+                    ? const SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: CircularProgressIndicator(
+                          color: _kOrange,
+                          strokeWidth: 3,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.camera_alt_rounded,
+                        color: _kOrange,
+                        size: 34,
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -220,7 +305,7 @@ class _CameraPageState extends State<CameraPage> {
             children: [
               const Icon(
                 Icons.no_photography_outlined,
-                color: Color(0xFFFF7E00),
+                color: _kOrange,
                 size: 64,
               ),
               const SizedBox(height: 20),
@@ -238,36 +323,6 @@ class _CameraPageState extends State<CameraPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCameraOverlay() {
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(
-        Colors.black.withValues(alpha: 0.5),
-        BlendMode.srcOut,
-      ),
-      child: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              color: Colors.black,
-              backgroundBlendMode: BlendMode.dstOut,
-            ),
-          ),
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

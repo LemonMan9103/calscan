@@ -12,9 +12,11 @@ class FirestoreService {
     required double weight,
     required double height,
     required int age,
+    String? gender,
     required String activityLevel,
     required String goal,
     required int calorieTarget,
+    DateTime? targetDate,
   }) async {
     if (uid == null) return;
 
@@ -24,9 +26,11 @@ class FirestoreService {
       'weight': weight,
       'height': height,
       'age': age,
+      ...gender == null ? {} : {'gender': gender},
       'activityLevel': activityLevel,
       'goal': goal,
       'calorieTarget': calorieTarget,
+      if (targetDate != null) 'targetDate': Timestamp.fromDate(targetDate),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -35,6 +39,13 @@ class FirestoreService {
     // get user profile
     if (uid == null) return null;
     return await _db.collection('users').doc(uid).get();
+  }
+
+  Future<bool> isCurrentUserAdmin() async {
+    // admin must come from firestore, dont trust email text
+    final doc = await getUserProfile();
+    final data = doc?.data() as Map<String, dynamic>?;
+    return data?['role'] == 'admin';
   }
 
   Future<FirestoreWriteStatus> saveMeal({

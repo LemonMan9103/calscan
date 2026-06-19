@@ -105,27 +105,29 @@ class AppTheme {
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-          (states) =>
-              states.contains(WidgetState.selected) ? Colors.white : const Color(0xFFB0B7C3),
+          (states) => states.contains(WidgetState.selected)
+              ? Colors.white
+              : const Color(0xFFB0B7C3),
         ),
         trackColor: WidgetStateProperty.resolveWith(
-          (states) =>
-              states.contains(WidgetState.selected) ? brand : const Color(0xFFD1D5DB),
+          (states) => states.contains(WidgetState.selected)
+              ? brand
+              : const Color(0xFFD1D5DB),
         ),
       ),
     );
   }
 
   static ThemeData get dark {
-    const background = Color(0xFF0D0F14);
-    const surface = Color(0xFF161A23);
-    const containerLow = Color(0xFF1A1E28);
-    const container = Color(0xFF1F2434);
-    const containerHigh = Color(0xFF252A3A);
-    const containerHighest = Color(0xFF2C3145);
-    const border = Color(0xFF2E3448);
-    const foreground = Color(0xFFE2E5F0);
-    const foregroundMuted = Color(0xFF8A90A8);
+    const background = Color(0xFF1E1E1E);
+    const surface = Color(0xFF252526);
+    const containerLow = Color(0xFF2A2A2A);
+    const container = Color(0xFF2D2D30);
+    const containerHigh = Color(0xFF333337);
+    const containerHighest = Color(0xFF3C3C3C);
+    const border = Color(0xFF454545);
+    const foreground = Color(0xFFE6E6E6);
+    const foregroundMuted = Color(0xFFA8A8A8);
     const primary = brand;
 
     const scheme = ColorScheme(
@@ -222,8 +224,9 @@ class AppTheme {
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-          (states) =>
-              states.contains(WidgetState.selected) ? Colors.white : foregroundMuted,
+          (states) => states.contains(WidgetState.selected)
+              ? Colors.white
+              : foregroundMuted,
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected) ? primary : border,

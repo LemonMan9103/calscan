@@ -14,6 +14,7 @@ Total Fat 7g
     expect(result.productName, 'Chocolate Oat Bar');
     expect(result.calories, 180);
     expect(result.calorieBasis, CalorieBasis.perServing);
+    expect(result.servingSize, 40);
     expect(result.serving, 'Serving size 1 bar (40g)');
   });
 
@@ -51,5 +52,17 @@ Energy 1880 kJ / 450 kcal
     final result = parseNutritionLabel('Energy 418.4 kJ');
 
     expect(result.calories, closeTo(100, 0.1));
+  });
+
+  test('extracts servings per package for piece-based custom logging', () {
+    final result = parseNutritionLabel('''
+Candy Pack
+Serving size 1 piece (5g)
+Servings per package 24
+Calories 20
+''');
+
+    expect(result.servingSize, 5);
+    expect(result.servingsPerPackage, 24);
   });
 }

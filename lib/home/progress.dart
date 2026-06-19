@@ -1,523 +1,162 @@
-import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-class ProgressPage extends StatelessWidget {
+const _kOrange = Color(0xFFFF7E00);
+
+class ProgressPage extends StatefulWidget {
   const ProgressPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Text(
-          'Progress',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: _ProgressBody(),
-    );
-  }
+  State<ProgressPage> createState() => _ProgressPageState();
 }
 
-class _ProgressBody extends StatelessWidget {
-  final _db = FirebaseFirestore.instance;
-  final String? _uid = FirebaseAuth.instance.currentUser?.uid;
+class _ProgressPageState extends State<ProgressPage> {
+  late DateTime _weekStart;
+  late Future<_GoalProfile> _profileFuture;
 
-  _ProgressBody();
+  @override
+  void initState() {
+    super.initState();
+    _weekStart = _startOfWeek(DateTime.now());
+    _profileFuture = _loadGoalProfile();
+  }
 
-  /// Fetch last 7 days of meals from Firestore
-  Stream<QuerySnapshot> _getLast7DaysMeals() {
-    if (_uid == null) return const Stream.empty();
-    final cutoff = DateTime.now().subtract(const Duration(days: 6));
-    final startOfCutoff = DateTime(cutoff.year, cutoff.month, cutoff.day);
-    return _db
+  Future<_GoalProfile> _loadGoalProfile() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const _GoalProfile();
+
+    final doc = await FirebaseFirestore.instance
         .collection('users')
-        .doc(_uid)
+        .doc(uid)
+        .get();
+    final data = doc.data() ?? {};
+    final targetDate = data['targetDate'];
+
+    return _GoalProfile(
+      goal: data['goal']?.toString() ?? 'Maintain Weight',
+      calorieTarget: (data['calorieTarget'] as num?)?.toInt() ?? 2000,
+      targetDate: targetDate is Timestamp ? targetDate.toDate() : null,
+    );
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> _weekMealsStream() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const Stream.empty();
+
+    final end = _weekStart.add(const Duration(days: 7));
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
         .collection('meals')
         .where(
           'timestamp',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(startOfCutoff),
+          isGreaterThanOrEqualTo: Timestamp.fromDate(_weekStart),
         )
-        .orderBy('timestamp', descending: false)
+        .where('timestamp', isLessThan: Timestamp.fromDate(end))
+        .orderBy('timestamp')
         .snapshots();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _getLast7DaysMeals(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFFFF7E00)),
-          );
-        }
-
-        final docs = snapshot.data?.docs ?? [];
-
-        // ── Aggregate data ────────────────────────────────────────────
-        // Build a map of  dateLabel -> {mealCount, totalCalories}
-        final now = DateTime.now();
-        final Map<String, _DayStats> dayStatsMap = {};
-
-        for (int i = 6; i >= 0; i--) {
-          final d = now.subtract(Duration(days: i));
-          final key = DateFormat('EEE').format(d); // Mon, Tue…
-          dayStatsMap[key] = _DayStats();
-        }
-
-        // Today's meals for line chart
-        final List<FlSpot> todaySpots = [];
-        double cumulativeToday = 0;
-
-        for (var doc in docs) {
-          final ts = (doc['timestamp'] as Timestamp).toDate();
-          final key = DateFormat('EEE').format(ts);
-          final cals = (doc['calories'] as num).toDouble();
-
-          if (dayStatsMap.containsKey(key)) {
-            dayStatsMap[key]!.mealCount++;
-            dayStatsMap[key]!.totalCalories += cals;
-          }
-
-          // Line chart: today only
-          final isToday =
-              ts.year == now.year && ts.month == now.month && ts.day == now.day;
-          if (isToday) {
-            cumulativeToday += cals;
-            todaySpots.add(FlSpot(ts.hour + ts.minute / 60, cumulativeToday));
-          }
-        }
-
-        // Streak: count consecutive days from today going backwards that have meals
-        int streak = 0;
-        for (int i = 0; i < 7; i++) {
-          final d = now.subtract(Duration(days: i));
-          final key = DateFormat('EEE').format(d);
-          if ((dayStatsMap[key]?.mealCount ?? 0) > 0) {
-            streak++;
-          } else {
-            break;
-          }
-        }
-
-        // Avg meals per active day (days with at least 1 meal)
-        final activeDays = dayStatsMap.values
-            .where((s) => s.mealCount > 0)
-            .length;
-        final totalMeals7 = dayStatsMap.values.fold(
-          0,
-          (s, d) => s + d.mealCount,
-        );
-        final avgMeals = activeDays > 0 ? totalMeals7 / activeDays : 0.0;
-
-        // Bar chart data (ordered Mon→Sun or last 7 days in order)
-        final dayKeys = dayStatsMap.keys.toList();
-        final barGroups = dayKeys.asMap().entries.map((e) {
-          return BarChartGroupData(
-            x: e.key,
-            barRods: [
-              BarChartRodData(
-                toY: dayStatsMap[e.value]!.mealCount.toDouble(),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFF7E00), Color(0xFFFF4B2B)],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
-                width: 20,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(6),
-                ),
-              ),
-            ],
-          );
-        }).toList();
-
-        final maxBarY = dayStatsMap.values
-            .map((s) => s.mealCount.toDouble())
-            .fold(0.0, (a, b) => a > b ? a : b);
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Stat cards ──────────────────────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      context: context,
-                      title: 'Streak',
-                      value: '$streak',
-                      unit: streak == 1 ? 'day' : 'days',
-                      icon: Icons.local_fire_department_rounded,
-                      color: const Color(0xFFFF7E00),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildStatCard(
-                      context: context,
-                      title: 'Avg / Day',
-                      value: avgMeals.toStringAsFixed(1),
-                      unit: 'meals',
-                      icon: Icons.restaurant_rounded,
-                      color: const Color(0xFF4D82F5),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildStatCard(
-                      context: context,
-                      title: 'This Week',
-                      value: '$totalMeals7',
-                      unit: 'meals',
-                      icon: Icons.calendar_today_rounded,
-                      color: const Color(0xFF30C060),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Meals per day bar chart ──────────────────────────────
-              _buildSectionTitle('Meals per Day', 'Last 7 days'),
-              const SizedBox(height: 12),
-              _buildCard(
-                context: context,
-                height: 210,
-                child: totalMeals7 == 0
-                    ? Builder(
-                        builder: (ctx) => Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.restaurant_outlined,
-                                size: 40,
-                                color: Theme.of(ctx)
-                                    .colorScheme
-                                    .onSurfaceVariant
-                                    .withValues(alpha: 0.35),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'No meals logged this week',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    ctx,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    maxY: (maxBarY < 3 ? 5 : maxBarY + 2),
-                    barTouchData: BarTouchData(
-                      enabled: true,
-                      touchTooltipData: BarTouchTooltipData(
-                        getTooltipItem: (group, groupIndex, rod, rodIndex) =>
-                            BarTooltipItem(
-                              '${rod.toY.toInt()} meals',
-                              const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                      ),
-                    ),
-                    titlesData: FlTitlesData(
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, meta) {
-                            final idx = value.toInt();
-                            if (idx < 0 || idx >= dayKeys.length) {
-                              return const SizedBox();
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                dayKeys[idx],
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 24,
-                          interval: 1,
-                          getTitlesWidget: (value, meta) => Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                    ),
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      horizontalInterval: 1,
-                      getDrawingHorizontalLine: (_) => FlLine(
-                      color: Theme.of(context).dividerColor,
-                      strokeWidth: 1,
-                    ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    barGroups: barGroups,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Today's calorie line chart ───────────────────────────
-              _buildSectionTitle(
-                "Today's Calories",
-                'Cumulative intake by hour',
-              ),
-              const SizedBox(height: 12),
-              _buildCard(
-                context: context,
-                height: 230,
-                child: todaySpots.isEmpty
-                    ? Builder(
-                        builder: (ctx) => Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.bar_chart_outlined,
-                                size: 40,
-                                color: Theme.of(ctx)
-                                    .colorScheme
-                                    .onSurfaceVariant
-                                    .withValues(alpha: 0.35),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'No meals logged today yet',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    ctx,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : LineChart(
-                        LineChartData(
-                          minX: 0,
-                          maxX: 24,
-                          minY: 0,
-                          gridData: FlGridData(
-                            show: true,
-                            drawVerticalLine: false,
-                            horizontalInterval: 200,
-                            getDrawingHorizontalLine: (_) => FlLine(
-                              color: Theme.of(context).dividerColor,
-                              strokeWidth: 1,
-                            ),
-                          ),
-                          titlesData: FlTitlesData(
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                interval: 6,
-                                getTitlesWidget: (value, meta) {
-                                  const labels = {
-                                    0: '12am',
-                                    6: '6am',
-                                    12: '12pm',
-                                    18: '6pm',
-                                    24: '11pm',
-                                  };
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      labels[value.toInt()] ?? '',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 40,
-                                interval: 200,
-                                getTitlesWidget: (value, meta) => Text(
-                                  '${value.toInt()}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            topTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            rightTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                          ),
-                          borderData: FlBorderData(show: false),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: todaySpots,
-                              isCurved: true,
-                              color: const Color(0xFFFF7E00),
-                              barWidth: 3,
-                              isStrokeCapRound: true,
-                              dotData: FlDotData(
-                                show: true,
-                                getDotPainter: (spot, _, _, _) =>
-                                    FlDotCirclePainter(
-                                      radius: 4,
-                                      color: const Color(0xFFFF7E00),
-                                      strokeWidth: 2,
-                                      strokeColor: Colors.white,
-                                    ),
-                              ),
-                              belowBarData: BarAreaData(
-                                show: true,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    const Color(
-                                      0xFFFF7E00,
-                                    ).withValues(alpha: 0.2),
-                                    const Color(
-                                      0xFFFF7E00,
-                                    ).withValues(alpha: 0.0),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── Calorie totals per day ───────────────────────────────
-              _buildSectionTitle('Daily Calories', 'Last 7 days total kcal'),
-              const SizedBox(height: 12),
-              _buildCalorieSummaryList(context, dayStatsMap, dayKeys),
-
-              const SizedBox(height: 32),
-            ],
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        title: Text(
+          'Progress',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
           ),
-        );
-      },
+        ),
+      ),
+      body: FutureBuilder<_GoalProfile>(
+        future: _profileFuture,
+        builder: (context, profileSnapshot) {
+          final profile = profileSnapshot.data ?? const _GoalProfile();
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: _weekMealsStream(),
+            builder: (context, mealSnapshot) {
+              if (mealSnapshot.connectionState == ConnectionState.waiting &&
+                  !mealSnapshot.hasData) {
+                return const Center(
+                  child: CircularProgressIndicator(color: _kOrange),
+                );
+              }
+
+              final days = _buildWeekDays(
+                profile,
+                mealSnapshot.data?.docs ?? [],
+              );
+              final achieved = days.where((day) => day.achieved).length;
+              final weekEnd = _weekStart.add(const Duration(days: 6));
+
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                children: [
+                  _buildGoalCard(theme, profile),
+                  const SizedBox(height: 14),
+                  _buildWeekPicker(theme, weekEnd),
+                  const SizedBox(height: 14),
+                  _buildAchievementCard(theme, achieved, days.length),
+                  const SizedBox(height: 14),
+                  _buildWeeklyBars(theme, days, profile),
+                  const SizedBox(height: 14),
+                  _buildRuleCard(theme, profile),
+                ],
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildStatCard({
-    required BuildContext context,
-    required String title,
-    required String value,
-    required String unit,
-    required IconData icon,
-    required Color color,
-  }) {
+  Widget _buildGoalCard(ThemeData theme, _GoalProfile profile) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border(
-          left: BorderSide(color: color.withValues(alpha: 0.6), width: 3),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: theme.dividerColor),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: _goalColor(profile.goal).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(
+              _goalIcon(profile.goal),
+              color: _goalColor(profile.goal),
+            ),
           ),
-          const SizedBox(height: 10),
-          RichText(
-            text: TextSpan(
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextSpan(
-                  text: value,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
+                Text(
+                  profile.goal,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                TextSpan(
-                  text: ' $unit',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                const SizedBox(height: 3),
+                Text(
+                  '${profile.calorieTarget} kcal daily target',
+                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                 ),
+                const SizedBox(height: 8),
+                _buildTargetDateChip(theme, profile),
               ],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -525,148 +164,353 @@ class _ProgressBody extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(String title, String subtitle) {
-    return Builder(
-      builder: (context) => Column(
+  Widget _buildTargetDateChip(ThemeData theme, _GoalProfile profile) {
+    final hasDate = profile.targetDate != null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: hasDate
+            ? _kOrange.withValues(alpha: 0.12)
+            : theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: hasDate
+              ? _kOrange.withValues(alpha: 0.34)
+              : theme.dividerColor,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasDate ? Icons.event_available_rounded : Icons.event_busy_outlined,
+            size: 15,
+            color: hasDate ? _kOrange : theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              hasDate
+                  ? 'Target ${DateFormat('MMM d, yyyy').format(profile.targetDate!)}'
+                  : 'No target date',
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: hasDate ? _kOrange : theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeekPicker(ThemeData theme, DateTime weekEnd) {
+    final currentWeekStart = _startOfWeek(DateTime.now());
+    final canGoNext = _weekStart.isBefore(currentWeekStart);
+    return Row(
+      children: [
+        IconButton.filledTonal(
+          tooltip: 'Previous week',
+          onPressed: () {
+            setState(
+              () => _weekStart = _weekStart.subtract(const Duration(days: 7)),
+            );
+          },
+          icon: const Icon(Icons.chevron_left),
+        ),
+        Expanded(
+          child: Text(
+            '${DateFormat('MMM d').format(_weekStart)} - ${DateFormat('MMM d').format(weekEnd)}',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        IconButton.filledTonal(
+          tooltip: 'Next week',
+          onPressed: canGoNext
+              ? () {
+                  setState(
+                    () => _weekStart = _weekStart.add(const Duration(days: 7)),
+                  );
+                }
+              : null,
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAchievementCard(ThemeData theme, int achieved, int totalDays) {
+    final percent = totalDays == 0 ? 0.0 : achieved / totalDays;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [_kOrange, Color(0xFFFF4B2B)]),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Weekly Goal Achievement',
+            style: TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$achieved / $totalDays days achieved',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: percent,
+              minHeight: 10,
+              backgroundColor: Colors.white.withValues(alpha: 0.24),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyBars(
+    ThemeData theme,
+    List<_DayProgress> days,
+    _GoalProfile profile,
+  ) {
+    final maxCalories = [
+      profile.calorieTarget.toDouble(),
+      ...days.map((day) => day.calories),
+    ].reduce((a, b) => a > b ? a : b);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            'Daily intake this week',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCard({
-    required BuildContext context,
-    required double height,
-    required Widget child,
-  }) {
-    return Container(
-      height: height,
-      padding: const EdgeInsets.fromLTRB(12, 20, 12, 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-
-  Widget _buildCalorieSummaryList(
-    BuildContext context,
-    Map<String, _DayStats> dayStatsMap,
-    List<String> dayKeys,
-  ) {
-    // Find max for proportional bars
-    final maxCals = dayStatsMap.values
-        .map((s) => s.totalCalories)
-        .fold(0.0, (a, b) => a > b ? a : b);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        children: dayKeys.reversed.map((key) {
-          final stats = dayStatsMap[key]!;
-          final ratio = maxCals > 0 ? stats.totalCalories / maxCals : 0.0;
-          final isLast = key == dayKeys.first;
-
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              border: isLast
-                  ? null
-                  : Border(
-                      bottom: BorderSide(
-                        color: Theme.of(context).dividerColor,
-                      ),
-                    ),
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 36,
-                  child: Text(
-                    key,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: stats.mealCount > 0
-                          ? Theme.of(context).colorScheme.onSurface
-                          : Theme.of(context).colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.35),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final day in days)
                 Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: ratio,
-                      minHeight: 7,
-                      backgroundColor: Theme.of(context).dividerColor,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFFFF7E00),
-                      ),
-                    ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: _DayBar(day: day, maxCalories: maxCalories),
                   ),
                 ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 70,
-                  child: Text(
-                    stats.mealCount > 0
-                        ? '${stats.totalCalories.toInt()} kcal'
-                        : '—',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: stats.mealCount > 0
-                          ? const Color(0xFFFF7E00)
-                          : Theme.of(context).colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.35),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildRuleCard(ThemeData theme, _GoalProfile profile) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: _kOrange),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _ruleText(profile),
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<_DayProgress> _buildWeekDays(
+    _GoalProfile profile,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final totals = List<double>.filled(7, 0);
+
+    for (final doc in docs) {
+      final data = doc.data();
+      final timestamp = data['timestamp'];
+      if (timestamp is! Timestamp) continue;
+      final dayIndex = timestamp.toDate().difference(_weekStart).inDays;
+      if (dayIndex < 0 || dayIndex > 6) continue;
+      totals[dayIndex] += (data['calories'] as num?)?.toDouble() ?? 0;
+    }
+
+    return List.generate(7, (index) {
+      final date = _weekStart.add(Duration(days: index));
+      final calories = totals[index];
+      return _DayProgress(
+        date: date,
+        calories: calories,
+        achieved: _isGoalAchieved(profile, calories),
+      );
+    });
+  }
+
+  bool _isGoalAchieved(_GoalProfile profile, double calories) {
+    if (calories <= 0) return false;
+    final goal = profile.goal.toLowerCase();
+    final target = profile.calorieTarget.toDouble();
+
+    // goal check used for weekly progress
+    if (goal.contains('lose')) {
+      final floor = target <= 1700 ? 1500.0 : target - 200;
+      return calories < target && calories >= floor;
+    }
+    if (goal.contains('gain')) {
+      return calories >= target;
+    }
+    if (goal.contains('custom')) {
+      return (calories - target).abs() <= 100;
+    }
+    return (calories - target).abs() <= 100;
+  }
+
+  String _ruleText(_GoalProfile profile) {
+    final goal = profile.goal.toLowerCase();
+    if (goal.contains('lose')) {
+      final floor = profile.calorieTarget <= 1700
+          ? 1500
+          : profile.calorieTarget - 200;
+      return 'Lose weight counts when intake is below target but not below $floor kcal, because too low is not healthy.';
+    }
+    if (goal.contains('gain')) {
+      return 'Gain weight counts when intake reaches at least ${profile.calorieTarget} kcal.';
+    }
+    return 'Maintain weight counts when intake is within +/-100 kcal of ${profile.calorieTarget} kcal.';
+  }
+
+  DateTime _startOfWeek(DateTime date) {
+    final local = DateTime(date.year, date.month, date.day);
+    return local.subtract(Duration(days: local.weekday - DateTime.monday));
+  }
+
+  IconData _goalIcon(String goal) {
+    final lower = goal.toLowerCase();
+    if (lower.contains('lose')) return Icons.trending_down;
+    if (lower.contains('gain')) return Icons.trending_up;
+    return Icons.track_changes;
+  }
+
+  Color _goalColor(String goal) {
+    final lower = goal.toLowerCase();
+    if (lower.contains('lose')) return const Color(0xFF3B82F6);
+    if (lower.contains('gain')) return const Color(0xFFA855F7);
+    return const Color(0xFF22C55E);
+  }
+}
+
+class _DayBar extends StatelessWidget {
+  final _DayProgress day;
+  final double maxCalories;
+
+  const _DayBar({required this.day, required this.maxCalories});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final barHeight = maxCalories <= 0
+        ? 0.0
+        : (day.calories / maxCalories) * 118;
+    final color = day.achieved ? const Color(0xFF22C55E) : _kOrange;
+
+    return Column(
+      children: [
+        Text(
+          day.calories <= 0 ? '-' : day.calories.round().toString(),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: barHeight.clamp(8, 118),
+            width: 22,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Icon(
+          day.achieved ? Icons.check_circle : Icons.circle_outlined,
+          size: 16,
+          color: day.achieved
+              ? const Color(0xFF22C55E)
+              : theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          DateFormat('E').format(day.date).substring(0, 1),
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _DayStats {
-  int mealCount = 0;
-  double totalCalories = 0;
+class _GoalProfile {
+  final String goal;
+  final int calorieTarget;
+  final DateTime? targetDate;
+
+  const _GoalProfile({
+    this.goal = 'Maintain Weight',
+    this.calorieTarget = 2000,
+    this.targetDate,
+  });
+}
+
+class _DayProgress {
+  final DateTime date;
+  final double calories;
+  final bool achieved;
+
+  const _DayProgress({
+    required this.date,
+    required this.calories,
+    required this.achieved,
+  });
 }

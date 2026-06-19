@@ -5,7 +5,22 @@ import 'package:calscan/logic/calorie_calculation.dart';
 import 'package:calscan/home/main_wrapper.dart';
 
 class ProfileSetupPage extends StatefulWidget {
-  const ProfileSetupPage({super.key});
+  final String? initialName;
+  final int? initialAge;
+  final double? initialWeight;
+  final double? initialHeight;
+  final String? initialGender;
+  final String? initialActivityLevel;
+
+  const ProfileSetupPage({
+    super.key,
+    this.initialName,
+    this.initialAge,
+    this.initialWeight,
+    this.initialHeight,
+    this.initialGender,
+    this.initialActivityLevel,
+  });
 
   @override
   State<ProfileSetupPage> createState() => _ProfileSetupPageState();
@@ -23,6 +38,21 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   final TextEditingController _heightController = TextEditingController(
     text: '',
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.initialName ?? '';
+    _ageController.text = widget.initialAge?.toString() ?? '';
+    _weightController.text = widget.initialWeight == null
+        ? ''
+        : widget.initialWeight!.toStringAsFixed(1);
+    _heightController.text = widget.initialHeight == null
+        ? ''
+        : widget.initialHeight!.toStringAsFixed(0);
+    _selectedGender = widget.initialGender;
+    _selectedActivityLevel = widget.initialActivityLevel;
+  }
 
   @override
   void dispose() {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:calscan/home/main_wrapper.dart';
 import 'package:calscan/logic/calorie_calculation.dart';
 import 'package:calscan/logic/firestore_service.dart';
+import 'package:intl/intl.dart';
 
 class GoalSetupPage extends StatefulWidget {
   final double estimatedTDEE;
@@ -32,6 +33,7 @@ class _GoalSetupPageState extends State<GoalSetupPage> {
   final TextEditingController _customController = TextEditingController(
     text: '',
   );
+  DateTime? _targetDate;
   bool _isLoading = false;
 
   @override
@@ -61,9 +63,11 @@ class _GoalSetupPageState extends State<GoalSetupPage> {
         weight: widget.weight,
         height: widget.height,
         age: widget.age,
+        gender: widget.gender.name,
         activityLevel: widget.activityLevel,
         goal: _selectedGoal,
         calorieTarget: finalTarget,
+        targetDate: _targetDate,
       );
 
       if (mounted) {
@@ -103,19 +107,23 @@ class _GoalSetupPageState extends State<GoalSetupPage> {
 
     int surplusValue = 300;
     int customLimit = (widget.gender == Gender.male) ? 1500 : 1200;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
+        title: Text(
           'Goal Setup',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: Stack(
@@ -226,6 +234,8 @@ class _GoalSetupPageState extends State<GoalSetupPage> {
                   isCustom: true,
                   warningLimit: customLimit,
                 ),
+                const SizedBox(height: 16),
+                _buildTargetDateCard(),
                 const SizedBox(height: 24),
                 _buildCompleteButton(deficitValue, surplusValue),
                 const SizedBox(height: 24),
@@ -373,6 +383,114 @@ class _GoalSetupPageState extends State<GoalSetupPage> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _pickTargetDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _targetDate ?? today.add(const Duration(days: 30)),
+      firstDate: today,
+      lastDate: DateTime(today.year + 5),
+    );
+    if (picked == null) return;
+    setState(() => _targetDate = picked);
+  }
+
+  Widget _buildTargetDateCard() {
+    final theme = Theme.of(context);
+    final label = _targetDate == null
+        ? 'No target date'
+        : DateFormat('MMM d, yyyy').format(_targetDate!);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _targetDate == null
+              ? theme.dividerColor
+              : const Color(0xFFFF7E00).withValues(alpha: 0.42),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF7E00).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.event_available_outlined,
+                  color: Color(0xFFFF7E00),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Target date',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _targetDate == null
+                          ? 'Optional deadline for this goal plan'
+                          : 'Goal plan ends on $label',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: _pickTargetDate,
+                  icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                  label: Text(_targetDate == null ? 'Set date' : 'Change date'),
+                ),
+              ),
+              if (_targetDate != null) ...[
+                const SizedBox(width: 10),
+                OutlinedButton(
+                  onPressed: () => setState(() => _targetDate = null),
+                  child: const Text('Clear'),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _targetDate == null
+                ? 'Leave empty if you just want to continue without deadline.'
+                : label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: _targetDate == null
+                  ? theme.colorScheme.onSurfaceVariant
+                  : const Color(0xFFFF7E00),
+              fontWeight: _targetDate == null
+                  ? FontWeight.w500
+                  : FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

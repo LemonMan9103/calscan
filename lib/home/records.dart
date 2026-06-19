@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:calscan/logic/crud_records.dart';
 import 'package:calscan/home/manual_record.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:calscan/logic/food_lookup_service.dart';
 
 class RecordsPage extends StatefulWidget {
   const RecordsPage({super.key});
@@ -14,6 +15,7 @@ class RecordsPage extends StatefulWidget {
 class _RecordsPageState extends State<RecordsPage> {
   DateTime _currentMonth = DateTime.now();
   final RecordService _recordService = RecordService();
+  final FoodLookupService _lookup = FoodLookupService();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -287,8 +289,6 @@ class _RecordsPageState extends State<RecordsPage> {
 
   Widget _buildMealRow(QueryDocumentSnapshot meal, {required bool isLast}) {
     final data = meal.data() as Map<String, dynamic>;
-    final time = (meal['timestamp'] as Timestamp).toDate();
-    final timeString = DateFormat.jm().format(time);
     final mealName = meal['mealName'] as String? ?? 'Unnamed';
     final portion = _mealPortionDescription(meal);
     final calories = (meal['calories'] as num).toInt();
@@ -296,6 +296,7 @@ class _RecordsPageState extends State<RecordsPage> {
     final carbs = (data['carbs'] as num?)?.toDouble() ?? 0.0;
     final fat = (data['fat'] as num?)?.toDouble() ?? 0.0;
     final hasMacros = protein + carbs + fat > 0;
+    final iconStyle = _mealIconStyle(data);
 
     return Dismissible(
       key: Key(meal.id),
@@ -363,29 +364,14 @@ class _RecordsPageState extends State<RecordsPage> {
           ),
           child: Row(
             children: [
-              // Time column
-              SizedBox(
-                width: 52,
-                child: Text(
-                  timeString,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
               // Food icon
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF7E00).withValues(alpha: 0.08),
+                  color: iconStyle.color.withValues(alpha: 0.11),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
-                  Icons.restaurant_menu,
-                  color: Color(0xFFFF7E00),
-                  size: 18,
-                ),
+                child: Icon(iconStyle.icon, color: iconStyle.color, size: 18),
               ),
               const SizedBox(width: 12),
               // Name + portion
@@ -413,9 +399,8 @@ class _RecordsPageState extends State<RecordsPage> {
                       Text(
                         'P ${protein.toInt()}g · C ${carbs.toInt()}g · F ${fat.toInt()}g',
                         style: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.65),
                           fontSize: 11,
                         ),
                       ),
@@ -455,6 +440,39 @@ class _RecordsPageState extends State<RecordsPage> {
         ),
       ),
     );
+  }
+
+  ({IconData icon, Color color}) _mealIconStyle(Map<String, dynamic> data) {
+    final items = data['items'];
+    final firstItem = items is List && items.isNotEmpty && items.first is Map
+        ? items.first as Map
+        : null;
+    final source = data['source']?.toString();
+
+    if (source == 'label_ocr' || firstItem?['type'] == 'packaged_food') {
+      return (icon: Icons.inventory_2_outlined, color: const Color(0xFF6366F1));
+    }
+
+    if (firstItem?['isCustom'] == true || firstItem?['key'] == null) {
+      return (icon: Icons.edit_note_rounded, color: const Color(0xFFFF7E00));
+    }
+
+    final key = firstItem?['key']?.toString();
+    final archetype = key == null ? null : _lookup.getArchetype(key);
+    switch (archetype?.archetypeId) {
+      case 'grain_rice':
+        return (icon: Icons.rice_bowl, color: const Color(0xFF22C55E));
+      case 'noodle_plate':
+        return (icon: Icons.ramen_dining, color: const Color(0xFFF97316));
+      case 'pcs_egg':
+        return (icon: Icons.egg_alt, color: const Color(0xFFEAB308));
+      case 'slice_pizza':
+        return (icon: Icons.local_pizza, color: const Color(0xFFEF4444));
+      case 'cup_drink':
+        return (icon: Icons.local_cafe, color: const Color(0xFF0EA5E9));
+      default:
+        return (icon: Icons.restaurant_menu, color: const Color(0xFFFF7E00));
+    }
   }
 
   String _mealPortionDescription(QueryDocumentSnapshot meal) {

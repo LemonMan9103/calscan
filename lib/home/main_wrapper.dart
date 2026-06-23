@@ -19,6 +19,7 @@ class MainWrapper extends StatefulWidget {
   final int? age;
   final double? weight;
   final double? height;
+  final String? gender;
   final String? activityLevel;
   final String? goal;
 
@@ -30,6 +31,7 @@ class MainWrapper extends StatefulWidget {
     this.age,
     this.weight,
     this.height,
+    this.gender,
     this.activityLevel,
     this.goal,
   });
@@ -69,7 +71,7 @@ class _MainWrapperState extends State<MainWrapper> {
       _age = widget.age!;
       _weight = widget.weight!;
       _height = widget.height!;
-      _gender = '';
+      _gender = widget.gender ?? '';
       _activityLevel = widget.activityLevel!;
       _goal = widget.goal!;
       _isAdmin = await FirestoreService().isCurrentUserAdmin();

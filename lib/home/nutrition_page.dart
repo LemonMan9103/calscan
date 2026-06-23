@@ -329,6 +329,16 @@ class _FoodVisualBox extends StatelessWidget {
             : Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
                 errorBuilder: (_, _, _) =>
                     Icon(Icons.broken_image_outlined, color: color),
               ),

@@ -542,7 +542,19 @@ class _FoodEditorSheetState extends State<_FoodEditorSheet> {
       return;
     }
 
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    XFile? picked;
+    try {
+      picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1400,
+        maxHeight: 1400,
+        imageQuality: 86,
+        requestFullMetadata: false,
+      );
+    } catch (e) {
+      _toast('Could not open gallery. Check photo permission and try again.');
+      return;
+    }
     if (picked == null) return;
     if (!mounted) return;
 
@@ -551,13 +563,15 @@ class _FoodEditorSheetState extends State<_FoodEditorSheet> {
       final url = await _admin.uploadFoodImage(
         imageFile: File(picked.path),
         foodKey: key,
+        sourceMimeType: picked.mimeType,
+        sourceName: picked.name,
       );
       if (!mounted) return;
       _imageUrlController.text = url;
-      _toast('Image uploaded. Save food to keep it.');
+      _toast('Image uploaded. Tap Save to keep it.');
     } catch (e) {
       if (!mounted) return;
-      _toast('Could not upload image: $e');
+      _toast('Could not upload image. Check Firebase Storage permission.');
     } finally {
       if (mounted) setState(() => _uploadingImage = false);
     }
@@ -1014,11 +1028,37 @@ class _ImageUrlPreview extends StatelessWidget {
         lower.contains('google.com/search');
   }
 
+  bool get _hasSupportedScheme {
+    final parsed = Uri.tryParse(url);
+    final scheme = parsed?.scheme.toLowerCase();
+    return scheme == 'https' || scheme == 'http';
+  }
+
+  bool get _looksLikeStoragePath {
+    final lower = url.toLowerCase();
+    return lower.startsWith('gs://') || lower.startsWith('food_images/');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (url.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+    if (_looksLikeStoragePath) {
+      return _ImageUrlMessage(
+        icon: Icons.cloud_off_rounded,
+        color: Colors.orange,
+        text:
+            'Use the Firebase download URL, not the Storage path. Upload from phone will fill the correct URL automatically.',
+      );
+    }
+    if (!_hasSupportedScheme) {
+      return _ImageUrlMessage(
+        icon: Icons.error_outline_rounded,
+        color: Colors.red,
+        text: 'Image URL must start with https:// or http:// to show in Esti.',
+      );
+    }
     if (_looksLikeGoogleShare) {
       return _ImageUrlMessage(
         icon: Icons.link_off_rounded,
@@ -1046,6 +1086,16 @@ class _ImageUrlPreview extends StatelessWidget {
               child: Image.network(
                 url,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
                 errorBuilder: (_, _, _) =>
                     const Icon(Icons.broken_image_outlined, color: _kOrange),
               ),
@@ -1229,6 +1279,16 @@ class _FoodImageBox extends StatelessWidget {
             : Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
                 errorBuilder: (_, _, _) =>
                     Icon(Icons.broken_image_outlined, color: color),
               ),

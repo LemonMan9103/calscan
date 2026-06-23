@@ -38,6 +38,34 @@ Energy 1880 kJ / 450 kcal 1340 kJ / 320 kcal
     expect(result.calorieBasis, CalorieBasis.perServing);
   });
 
+  test('prefers per-serving value when table headers are split by OCR', () {
+    final result = parseNutritionLabel('''
+Nutrition Information
+Per 100g
+Per serving
+Energy
+450 kcal
+320 kcal
+Protein
+8g
+''');
+
+    expect(result.calories, 320);
+    expect(result.calorieBasis, CalorieBasis.perServing);
+  });
+
+  test('prefers per-serving value when OCR keeps table values on one line', () {
+    final result = parseNutritionLabel('''
+Average nutrition information
+Per 100g
+Per serving
+Energy 450 kcal 320 kcal
+''');
+
+    expect(result.calories, 320);
+    expect(result.calorieBasis, CalorieBasis.perServing);
+  });
+
   test('marks a per-100g-only value correctly', () {
     final result = parseNutritionLabel('''
 Average nutrition information per 100g
@@ -77,5 +105,36 @@ Calories 0kcal
     expect(result.productName, 'Diet Coke');
     expect(result.calories, 0);
     expect(result.calorieBasis, CalorieBasis.perServing);
+  });
+
+  test('understands Malay serving wording and Cal units', () {
+    final result = parseNutritionLabel('''
+Mi Segera
+Maklumat Pemakanan
+Saiz hidangan 1 paket (80g)
+Hidangan setiap pek 5
+Tenaga 350 Cal
+''');
+
+    expect(result.productName, 'Mi Segera');
+    expect(result.calories, 350);
+    expect(result.servingSize, 80);
+    expect(result.servingsPerPackage, 5);
+    expect(result.serving, 'Saiz hidangan 1 paket (80g)');
+    expect(result.calorieBasis, isNot(CalorieBasis.perPackage));
+  });
+
+  test('extracts direct Kalori values', () {
+    final result = parseNutritionLabel('''
+Keropok
+Kalori 120
+Saiz sajian 30g
+Bilangan sajian 3
+''');
+
+    expect(result.productName, 'Keropok');
+    expect(result.calories, 120);
+    expect(result.servingSize, 30);
+    expect(result.servingsPerPackage, 3);
   });
 }

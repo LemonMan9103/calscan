@@ -61,6 +61,9 @@ NutritionLabelEstimate parseNutritionLabel(String rawText) {
 }
 
 _CalorieResult _findCalories(List<String> lines) {
+  final tableServing = _findTableServingCalories(lines);
+  if (tableServing != null) return tableServing;
+
   final serving = _findBasisCalories(lines, CalorieBasis.perServing);
   if (serving != null) return serving;
 
@@ -71,11 +74,15 @@ _CalorieResult _findCalories(List<String> lines) {
   if (per100g != null) return per100g;
 
   final calorieLine = RegExp(
-    r'\bcalories?\b\s*[:\-]?\s*(\d{1,4}(?:[.,]\d+)?)',
+    r'\b(?:calories?|kalori)\b\s*[:\-]?\s*(\d{1,4}(?:[.,]\d+)?)',
+    caseSensitive: false,
+  );
+  final energyLine = RegExp(
+    r'\b(?:energy|tenaga)\b.*?(\d{1,4}(?:[.,]\d+)?)\s*(?:kcal|cal)\b',
     caseSensitive: false,
   );
   final kcalValue = RegExp(
-    r'(\d{1,4}(?:[.,]\d+)?)\s*kcal\b',
+    r'(\d{1,4}(?:[.,]\d+)?)\s*(?:kcal|cal)\b',
     caseSensitive: false,
   );
   final plainNumber = RegExp(r'^\s*(\d{1,4}(?:[.,]\d+)?)\s*$');
@@ -89,7 +96,19 @@ _CalorieResult _findCalories(List<String> lines) {
       );
     }
 
-    if (lines[index].toLowerCase().contains('calor') &&
+    final energy = energyLine.firstMatch(lines[index]);
+    if (energy != null) {
+      return _CalorieResult(
+        calories: _parseNumber(energy.group(1)),
+        basis: CalorieBasis.unknown,
+      );
+    }
+
+    final lower = lines[index].toLowerCase();
+    if ((lower.contains('calor') ||
+            lower.contains('kalori') ||
+            lower.contains('energy') ||
+            lower.contains('tenaga')) &&
         index + 1 < lines.length) {
       final next = plainNumber.firstMatch(lines[index + 1]);
       if (next != null) {
@@ -129,28 +148,153 @@ _CalorieResult _findCalories(List<String> lines) {
   return const _CalorieResult(calories: null, basis: CalorieBasis.unknown);
 }
 
+_CalorieResult? _findTableServingCalories(List<String> lines) {
+  for (var index = 0; index < lines.length; index++) {
+    final hasServing = _isServingColumnHeader(lines[index]);
+    final hasPer100 = _isPer100ColumnHeader(lines[index]);
+    if (!hasServing || !hasPer100) continue;
+
+    final values = _tableCalorieValues(lines, index, index + 7);
+    if (values.length >= 2) {
+      return _CalorieResult(
+        calories: values.last,
+        basis: CalorieBasis.perServing,
+      );
+    }
+  }
+
+  for (var per100Index = 0; per100Index < lines.length; per100Index++) {
+    if (!_isPer100ColumnHeader(lines[per100Index])) continue;
+
+    final start = per100Index - 3 < 0 ? 0 : per100Index - 3;
+    final end = per100Index + 4 > lines.length ? lines.length : per100Index + 4;
+
+    for (var servingIndex = start; servingIndex < end; servingIndex++) {
+      if (servingIndex == per100Index ||
+          !_isServingColumnHeader(lines[servingIndex])) {
+        continue;
+      }
+
+      final valueStart = servingIndex > per100Index
+          ? servingIndex + 1
+          : per100Index + 1;
+      final values = _tableCalorieValues(lines, valueStart, valueStart + 8);
+      if (values.length < 2) continue;
+
+      return _CalorieResult(
+        calories: servingIndex > per100Index ? values[1] : values[0],
+        basis: CalorieBasis.perServing,
+      );
+    }
+  }
+
+  return null;
+}
+
+bool _isServingColumnHeader(String line) {
+  final lower = line.toLowerCase();
+  if (lower.contains('serving size') ||
+      lower.contains('saiz hidangan') ||
+      lower.contains('saiz sajian') ||
+      lower.contains('servings per') ||
+      lower.contains('hidangan setiap') ||
+      lower.contains('sajian setiap')) {
+    return false;
+  }
+  return RegExp(
+    r'\bper serving\b|\bper serve\b|\bper (?:hidangan|sajian)\b|\bsetiap (?:hidangan|sajian)\b',
+    caseSensitive: false,
+  ).hasMatch(line);
+}
+
+bool _isPer100ColumnHeader(String line) {
+  final lower = line.toLowerCase();
+  if (lower.contains('serving size') ||
+      lower.contains('saiz hidangan') ||
+      lower.contains('saiz sajian')) {
+    return false;
+  }
+  return RegExp(
+    r'\bper\s*100\s*(?:g|ml)\b|\b100\s*(?:g|ml)\b|\bsetiap\s*100\s*(?:g|ml)\b',
+    caseSensitive: false,
+  ).hasMatch(line);
+}
+
+List<double> _tableCalorieValues(List<String> lines, int start, int end) {
+  final values = <double>[];
+  final valuePattern = RegExp(
+    r'(\d{1,4}(?:[.,]\d+)?)\s*(?:kcal|cal)\b',
+    caseSensitive: false,
+  );
+  final plainNumber = RegExp(r'^\s*(\d{1,4}(?:[.,]\d+)?)\s*$');
+  var seenEnergyRow = false;
+
+  for (var index = start; index < lines.length && index < end; index++) {
+    final line = lines[index];
+    final lower = line.toLowerCase();
+    if (RegExp(
+      r'\b(?:energy|tenaga|calories?|kalori)\b',
+      caseSensitive: false,
+    ).hasMatch(line)) {
+      seenEnergyRow = true;
+    }
+
+    final kcalValues = valuePattern.allMatches(line).toList();
+    if (kcalValues.isNotEmpty) {
+      for (final match in kcalValues) {
+        final value = _parseNumber(match.group(1));
+        if (value != null) values.add(value);
+      }
+      continue;
+    }
+
+    if (seenEnergyRow) {
+      final plain = plainNumber.firstMatch(line);
+      final value = _parseNumber(plain?.group(1));
+      if (value != null) values.add(value);
+    }
+
+    if (values.isNotEmpty &&
+        RegExp(
+          r'\b(?:protein|carbohydrate|karbohidrat|fat|lemak|sodium|natrium|sugar|gula)\b',
+          caseSensitive: false,
+        ).hasMatch(lower)) {
+      break;
+    }
+  }
+
+  return values;
+}
+
 _CalorieResult? _findBasisCalories(List<String> lines, CalorieBasis basis) {
   final basisPattern = switch (basis) {
     CalorieBasis.perServing => RegExp(
-      r'\bper serving\b|\beach serving\b|\bserving contains\b',
+      r'\bper serving\b|\beach serving\b|\bserving contains\b|\bsetiap (?:hidangan|sajian)\b|\bper (?:hidangan|sajian)\b',
       caseSensitive: false,
     ),
     CalorieBasis.perPackage => RegExp(
-      r'\bper package\b|\bper pack\b|\bper container\b|\bwhole pack\b',
+      r'\bper package\b|\bper pack\b|\bper container\b|\bwhole pack\b|\bsetiap pek\b|\bsetiap paket\b|\bsetiap bungkusan\b',
       caseSensitive: false,
     ),
     CalorieBasis.per100g => RegExp(
-      r'\bper\s*100\s*g\b|\b100\s*g\b',
+      r'\bper\s*100\s*g\b|\b100\s*g\b|\bsetiap\s*100\s*g\b',
       caseSensitive: false,
     ),
     CalorieBasis.unknown => RegExp(r'$.'),
   };
   final valuePattern = RegExp(
-    r'(\d{1,4}(?:[.,]\d+)?)\s*kcal\b',
+    r'(\d{1,4}(?:[.,]\d+)?)\s*(?:kcal|cal)\b',
     caseSensitive: false,
   );
 
   for (var index = 0; index < lines.length; index++) {
+    final lower = lines[index].toLowerCase();
+    if (basis == CalorieBasis.perPackage &&
+        (lower.contains('servings per') ||
+            lower.contains('hidangan setiap') ||
+            lower.contains('sajian setiap'))) {
+      continue;
+    }
     if (!basisPattern.hasMatch(lines[index])) continue;
 
     final sameLine = valuePattern.allMatches(lines[index]).toList();
@@ -183,7 +327,7 @@ _CalorieResult? _findBasisCalories(List<String> lines, CalorieBasis basis) {
 String _findServing(List<String> lines) {
   for (final line in lines) {
     if (RegExp(
-      r'\bserving size\b|\bper serving\b|\bservings per\b',
+      r'\bserving size\b|\bsaiz (?:hidangan|sajian)\b|\bper serving\b|\bservings per\b|\bsetiap (?:hidangan|sajian)\b|\b(?:hidangan|sajian) setiap\b',
       caseSensitive: false,
     ).hasMatch(line)) {
       return line;
@@ -193,7 +337,10 @@ String _findServing(List<String> lines) {
 }
 
 double? _findServingSize(List<String> lines) {
-  final labeledServingSize = RegExp(r'\bserving size\b', caseSensitive: false);
+  final labeledServingSize = RegExp(
+    r'\bserving size\b|\bsaiz (?:hidangan|sajian)\b',
+    caseSensitive: false,
+  );
   final measuredValue = RegExp(
     r'(\d{1,5}(?:[.,]\d+)?)\s*(?:g|gram|grams|ml|mL)\b',
     caseSensitive: false,
@@ -202,7 +349,11 @@ double? _findServingSize(List<String> lines) {
 
   for (final line in lines) {
     final lower = line.toLowerCase();
-    if (lower.contains('servings per')) continue;
+    if (lower.contains('servings per') ||
+        lower.contains('hidangan setiap') ||
+        lower.contains('sajian setiap')) {
+      continue;
+    }
     if (!labeledServingSize.hasMatch(line)) continue;
 
     // get real grams/ml, not "1" from "1 bar (40g)"
@@ -227,6 +378,14 @@ double? _findServingsPerPackage(List<String> lines) {
       caseSensitive: false,
     ),
     RegExp(
+      r'\b(?:hidangan|sajian)\s+setiap\s+(?:pek|paket|bungkusan|bekas)\b[^0-9]*(\d{1,3}(?:[.,]\d+)?)',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'\b(?:jumlah|bilangan)\s+(?:hidangan|sajian)\b[^0-9]*(\d{1,3}(?:[.,]\d+)?)',
+      caseSensitive: false,
+    ),
+    RegExp(
       r'\babout\s+(\d{1,3}(?:[.,]\d+)?)\s+servings?\b',
       caseSensitive: false,
     ),
@@ -246,15 +405,26 @@ double? _findServingsPerPackage(List<String> lines) {
 String _findProductName(List<String> lines) {
   const excludedTerms = [
     'nutrition',
+    'nutrisi',
+    'pemakanan',
+    'maklumat',
     'calorie',
+    'kalori',
     'energy',
+    'tenaga',
     'serving',
+    'hidangan',
+    'sajian',
     'protein',
     'carbohydrate',
+    'karbohidrat',
     'total fat',
+    'lemak',
     'saturated',
     'sodium',
+    'natrium',
     'sugar',
+    'gula',
     'ingredient',
     'daily value',
     'vitamin',

@@ -32,6 +32,7 @@ class RecognitionService {
     'Ayam_Masak_Merah',
     'Burger',
     'Cendol',
+    'Cek_Mek_Molek',
     'Char_Kway_Teow',
     'Gulai_Ikan_Tongkol',
     'Ikan_Bilis_Goreng',

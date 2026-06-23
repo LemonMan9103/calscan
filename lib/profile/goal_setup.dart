@@ -12,6 +12,9 @@ class GoalSetupPage extends StatefulWidget {
   final double weight;
   final double height;
   final String activityLevel;
+  final String? initialGoal;
+  final int? initialCalorieTarget;
+  final DateTime? initialTargetDate;
 
   const GoalSetupPage({
     super.key,
@@ -22,6 +25,9 @@ class GoalSetupPage extends StatefulWidget {
     required this.weight,
     required this.height,
     required this.activityLevel,
+    this.initialGoal,
+    this.initialCalorieTarget,
+    this.initialTargetDate,
   });
 
   @override
@@ -37,9 +43,27 @@ class _GoalSetupPageState extends State<GoalSetupPage> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _selectedGoal = _initialGoalLabel(widget.initialGoal);
+    if (_selectedGoal == 'Custom Goal' && widget.initialCalorieTarget != null) {
+      _customController.text = widget.initialCalorieTarget.toString();
+    }
+    _targetDate = widget.initialTargetDate;
+  }
+
+  @override
   void dispose() {
     _customController.dispose();
     super.dispose();
+  }
+
+  String _initialGoalLabel(String? value) {
+    final lower = value?.toLowerCase().trim() ?? '';
+    if (lower.contains('lose')) return 'Lose Weight';
+    if (lower.contains('gain')) return 'Gain Weight';
+    if (lower.contains('custom')) return 'Custom Goal';
+    return 'Maintain Weight';
   }
 
   Future<void> _completeSetup(int deficit, int surplus) async {
@@ -80,6 +104,7 @@ class _GoalSetupPageState extends State<GoalSetupPage> {
               age: widget.age,
               weight: widget.weight,
               height: widget.height,
+              gender: widget.gender.name,
               activityLevel: widget.activityLevel,
               goal: _selectedGoal,
             ),

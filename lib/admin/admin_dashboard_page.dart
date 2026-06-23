@@ -1,5 +1,5 @@
+import 'package:calscan/admin/admin_image_upload_stats_page.dart';
 import 'package:calscan/admin/admin_model_center_page.dart';
-import 'package:calscan/admin/admin_safety_page.dart';
 import 'package:calscan/admin/nutrition_library_admin_page.dart';
 import 'package:flutter/material.dart';
 
@@ -40,20 +40,19 @@ class AdminDashboardPage extends StatelessWidget {
           _AdminToolCard(
             icon: Icons.model_training_rounded,
             title: 'Model Center',
-            subtitle: 'Draft test food and portion models before publishing.',
-            status: 'Draft',
+            subtitle: 'Test food and portion models on this admin phone only.',
+            status: 'Local',
             accent: _kOrange,
             onTap: () => _open(context, const AdminModelCenterPage()),
           ),
           const SizedBox(height: 12),
           _AdminToolCard(
-            icon: Icons.verified_user_rounded,
-            title: 'Dev Tools',
-            subtitle:
-                'Rules checklist, model guardrails, and training data plan.',
-            status: 'Dev',
-            accent: const Color(0xFF7C3AED),
-            onTap: () => _open(context, const AdminSafetyPage()),
+            icon: Icons.image_search_rounded,
+            title: 'Image Upload Stats',
+            subtitle: 'Check food image coverage without opening photos.',
+            status: 'Stats',
+            accent: const Color(0xFF2563EB),
+            onTap: () => _open(context, const AdminImageUploadStatsPage()),
           ),
           const SizedBox(height: 16),
           _AdminNoteCard(theme: theme),
@@ -133,7 +132,7 @@ class _HeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Manage nutrition data, model drafts, and developer guardrails from one place.',
+            'Manage nutrition data, local model tests, and image upload coverage from one place.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.84),
               height: 1.4,
@@ -144,9 +143,9 @@ class _HeaderCard extends StatelessWidget {
             children: [
               _HeaderStat(label: 'Live', value: '1'),
               SizedBox(width: 10),
-              _HeaderStat(label: 'Draft', value: '1'),
+              _HeaderStat(label: 'Local', value: '1'),
               SizedBox(width: 10),
-              _HeaderStat(label: 'Dev', value: '1'),
+              _HeaderStat(label: 'Stats', value: '1'),
             ],
           ),
         ],
@@ -302,7 +301,7 @@ class _AdminNoteCard extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Nutrition Library changes are live. Model updates stay under draft testing first, so a bad model cannot replace the live app by accident.',
+              'Nutrition Library changes are live. Model Center only tests local files on the admin phone; accepted models still ship in the next APK.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.4,

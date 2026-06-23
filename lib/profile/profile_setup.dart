@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:calscan/profile/goal_setup.dart';
 import 'package:calscan/logic/calorie_calculation.dart';
-import 'package:calscan/home/main_wrapper.dart';
+import 'package:calscan/logic/firestore_service.dart';
 
 class ProfileSetupPage extends StatefulWidget {
   final String? initialName;
@@ -11,6 +11,7 @@ class ProfileSetupPage extends StatefulWidget {
   final double? initialHeight;
   final String? initialGender;
   final String? initialActivityLevel;
+  final bool editOnly;
 
   const ProfileSetupPage({
     super.key,
@@ -20,6 +21,7 @@ class ProfileSetupPage extends StatefulWidget {
     this.initialHeight,
     this.initialGender,
     this.initialActivityLevel,
+    this.editOnly = false,
   });
 
   @override
@@ -38,6 +40,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   final TextEditingController _heightController = TextEditingController(
     text: '',
   );
+  bool _saving = false;
 
   @override
   void initState() {
@@ -50,7 +53,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     _heightController.text = widget.initialHeight == null
         ? ''
         : widget.initialHeight!.toStringAsFixed(0);
-    _selectedGender = widget.initialGender;
+    _selectedGender = _normalizeGender(widget.initialGender);
     _selectedActivityLevel = widget.initialActivityLevel;
   }
 
@@ -87,7 +90,14 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         _selectedActivityLevel != null;
   }
 
-  void _onContinue() {
+  String? _normalizeGender(String? value) {
+    final lower = value?.toLowerCase().trim();
+    if (lower == 'male') return 'Male';
+    if (lower == 'female') return 'Female';
+    return null;
+  }
+
+  Future<void> _onContinue() async {
     if (!_isFormValid()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -103,6 +113,17 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     final Gender gender = _selectedGender == 'Male'
         ? Gender.male
         : Gender.female;
+
+    if (widget.editOnly) {
+      await _saveProfileOnly(
+        name: _nameController.text.trim(),
+        weight: weight,
+        height: height,
+        age: age,
+        gender: gender,
+      );
+      return;
+    }
 
     final double bmr = CalorieCalculator.calculateBMR(
       weightKg: weight,
@@ -130,6 +151,34 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     );
   }
 
+  Future<void> _saveProfileOnly({
+    required String name,
+    required double weight,
+    required double height,
+    required int age,
+    required Gender gender,
+  }) async {
+    setState(() => _saving = true);
+    try {
+      await FirestoreService().updateUserProfileDetails(
+        name: name,
+        weight: weight,
+        height: height,
+        age: age,
+        gender: gender.name,
+        activityLevel: _selectedActivityLevel!,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save profile: $e')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,65 +186,42 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Profile Setup',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const MainWrapper(
-                    userName: 'Guest',
-                    calorieTarget: 2000,
-                    age: 25,
-                    weight: 65.0,
-                    height: 170.0,
-                    activityLevel: 'Sedentary',
-                    goal: 'custom',
-                  ),
-                ),
-                (route) => false,
-              );
-            },
-            child: const Text(
-              'Skip',
-              style: TextStyle(
-                color: Color(0xFFFF7E00),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+        automaticallyImplyLeading: widget.editOnly,
+        title: Text(
+          widget.editOnly ? 'Edit Profile' : 'Profile Setup',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
           ),
-        ],
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text('Step 1 of 2', style: TextStyle(color: Colors.grey)),
-                Text('50%', style: TextStyle(color: Colors.grey)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: 0.5,
-                backgroundColor: Colors.grey[300],
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFFF7E00),
-                ),
-                minHeight: 8,
+            if (!widget.editOnly) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  Text('Step 1 of 2', style: TextStyle(color: Colors.grey)),
+                  Text('50%', style: TextStyle(color: Colors.grey)),
+                ],
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: 0.5,
+                  backgroundColor: Colors.grey[300],
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFFFF7E00),
+                  ),
+                  minHeight: 8,
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
             Card(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -219,8 +245,8 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                         const SizedBox(width: 16),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
+                          children: [
+                            const Text(
                               'Personal Information',
                               style: TextStyle(
                                 fontSize: 18,
@@ -228,8 +254,10 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                               ),
                             ),
                             Text(
-                              'Tell us about yourself',
-                              style: TextStyle(color: Colors.grey),
+                              widget.editOnly
+                                  ? 'Update your personal details'
+                                  : 'Tell us about yourself',
+                              style: const TextStyle(color: Colors.grey),
                             ),
                           ],
                         ),
@@ -337,7 +365,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
             const SizedBox(height: 24),
             const Center(
               child: Text(
-                'Your data is stored locally and used to calculate personalized calorie intake',
+                'Your profile is used to calculate personalized calorie intake',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
@@ -510,7 +538,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
               ),
       ),
       child: ElevatedButton(
-        onPressed: isValid ? _onContinue : null,
+        onPressed: isValid && !_saving ? _onContinue : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -520,21 +548,33 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text(
-              'Continue to Goal Setup',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+        child: _saving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.editOnly ? 'Save Profile' : 'Continue to Goal Setup',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    widget.editOnly ? Icons.check : Icons.chevron_right,
+                    color: Colors.white,
+                  ),
+                ],
               ),
-            ),
-            SizedBox(width: 8),
-            Icon(Icons.chevron_right, color: Colors.white),
-          ],
-        ),
       ),
     );
   }

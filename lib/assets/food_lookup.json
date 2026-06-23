@@ -368,6 +368,22 @@
       },
       "archetype": "cup_drink"
     },
+    "Cek_Mek_Molek": {
+      "display_name": "Cek Mek Molek",
+      "category": "snack",
+      "base_calories": 170,
+      "cooking_modifier": 1.15,
+      "description": "Kelantanese fried sweet potato snack with sugar filling, per piece",
+      "protein_g": 2,
+      "carbs_g": 30,
+      "fat_g": 5,
+      "portion_labels": {
+        "S": "1 small",
+        "M": "1 piece",
+        "L": "2 pieces"
+      },
+      "archetype": "pcs_small"
+    },
     "Char_Kway_Teow": {
       "display_name": "Char Kway Teow",
       "category": "whole_dish",

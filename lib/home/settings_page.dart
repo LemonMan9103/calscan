@@ -1,6 +1,8 @@
 import 'package:calscan/admin/admin_dashboard_page.dart';
+import 'package:calscan/logic/calorie_calculation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:calscan/profile/goal_setup.dart';
 import 'package:calscan/profile/profile_setup.dart';
 import 'package:calscan/profile/login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,7 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:calscan/theme/theme_controller.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   final ThemeController themeController;
   final String userName;
   final int calorieTarget;
@@ -34,6 +36,50 @@ class SettingsPage extends StatelessWidget {
     required this.isAdmin,
   });
 
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  late String _userName;
+  late int _calorieTarget;
+  late int _age;
+  late double _weight;
+  late double _height;
+  late String _gender;
+  late String _activityLevel;
+  late String _goal;
+  late bool _isAdmin;
+
+  ThemeController get themeController => widget.themeController;
+  String get userName => _userName;
+  int get calorieTarget => _calorieTarget;
+  int get age => _age;
+  double get weight => _weight;
+  double get height => _height;
+  String get gender => _gender;
+  String get activityLevel => _activityLevel;
+  String get goal => _goal;
+  bool get isAdmin => _isAdmin;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFromWidget();
+  }
+
+  void _loadFromWidget() {
+    _userName = widget.userName;
+    _calorieTarget = widget.calorieTarget;
+    _age = widget.age;
+    _weight = widget.weight;
+    _height = widget.height;
+    _gender = widget.gender;
+    _activityLevel = widget.activityLevel;
+    _goal = widget.goal;
+    _isAdmin = widget.isAdmin;
+  }
+
   Future<void> _logout(BuildContext context) async {
     try {
       await GoogleSignIn().signOut();
@@ -51,6 +97,112 @@ class SettingsPage extends StatelessWidget {
           context,
         ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
       }
+    }
+  }
+
+  Future<void> _openProfileEditor(BuildContext context) async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileSetupPage(
+          initialName: userName,
+          initialAge: age,
+          initialWeight: weight,
+          initialHeight: height,
+          initialGender: _profileGenderLabel(gender),
+          initialActivityLevel: activityLevel,
+          editOnly: true,
+        ),
+      ),
+    );
+
+    if (saved == true && context.mounted) {
+      await _refreshProfile();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
+    }
+  }
+
+  Future<void> _refreshProfile() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    final data = doc.data();
+    if (data == null || !mounted) return;
+
+    setState(() {
+      _userName = data['name']?.toString() ?? _userName;
+      _calorieTarget =
+          (data['calorieTarget'] as num?)?.toInt() ?? _calorieTarget;
+      _age = (data['age'] as num?)?.toInt() ?? _age;
+      _weight = (data['weight'] as num?)?.toDouble() ?? _weight;
+      _height = (data['height'] as num?)?.toDouble() ?? _height;
+      _gender = data['gender']?.toString() ?? _gender;
+      _activityLevel = data['activityLevel']?.toString() ?? _activityLevel;
+      _goal = data['goal']?.toString() ?? _goal;
+      _isAdmin = data['role'] == 'admin';
+    });
+  }
+
+  void _openGoalSetup(BuildContext context) {
+    final profileGender = _genderFromProfile(gender);
+    final bmr = CalorieCalculator.calculateBMR(
+      weightKg: weight,
+      heightCm: height,
+      age: age,
+      gender: profileGender,
+    );
+    final tdee = CalorieCalculator.calculateTDEE(
+      bmr,
+      _activityMultiplier(activityLevel),
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GoalSetupPage(
+          estimatedTDEE: tdee,
+          gender: profileGender,
+          userName: userName,
+          age: age,
+          weight: weight,
+          height: height,
+          activityLevel: activityLevel,
+          initialGoal: goal,
+          initialCalorieTarget: calorieTarget,
+        ),
+      ),
+    );
+  }
+
+  String? _profileGenderLabel(String value) {
+    final lower = value.toLowerCase().trim();
+    if (lower == 'male') return 'Male';
+    if (lower == 'female') return 'Female';
+    return null;
+  }
+
+  Gender _genderFromProfile(String value) {
+    return value.toLowerCase().trim() == 'female' ? Gender.female : Gender.male;
+  }
+
+  double _activityMultiplier(String level) {
+    switch (level) {
+      case 'Light':
+        return 1.375;
+      case 'Moderate':
+        return 1.55;
+      case 'Active':
+        return 1.725;
+      case 'Sedentary':
+      default:
+        return 1.2;
     }
   }
 
@@ -152,21 +304,7 @@ class SettingsPage extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ProfileSetupPage(
-                        initialName: userName,
-                        initialAge: age,
-                        initialWeight: weight,
-                        initialHeight: height,
-                        initialGender: gender.isEmpty ? null : gender,
-                        initialActivityLevel: activityLevel,
-                      ),
-                    ),
-                  );
-                },
+                onPressed: () => _openProfileEditor(context),
                 style: OutlinedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -175,6 +313,25 @@ class SettingsPage extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 child: const Text('Edit Profile'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _openGoalSetup(context),
+                icon: const Icon(Icons.track_changes, color: Colors.white),
+                label: const Text(
+                  'Set Goal',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF7E00),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
           ],

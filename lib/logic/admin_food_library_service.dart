@@ -69,6 +69,8 @@ class AdminFoodLibraryService {
   Future<String> uploadFoodImage({
     required File imageFile,
     required String foodKey,
+    String? sourceMimeType,
+    String? sourceName,
   }) async {
     await _assertAdmin();
 
@@ -77,25 +79,41 @@ class AdminFoodLibraryService {
       throw StateError('Food key is needed before uploading image.');
     }
 
-    final bytes = await _compressedFoodImageBytes(imageFile);
+    final upload = await _prepareFoodImageUpload(
+      imageFile,
+      sourceMimeType: sourceMimeType,
+      sourceName: sourceName,
+    );
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    final ref = _storage.ref('food_images/$key/main.jpg');
+    final ref = _storage.ref('food_images/$key/${upload.fileName}');
     final metadata = {'foodKey': key};
     if (uid != null) metadata['updatedBy'] = uid;
 
     await ref.putData(
-      bytes,
-      SettableMetadata(contentType: 'image/jpeg', customMetadata: metadata),
+      upload.bytes,
+      SettableMetadata(
+        contentType: upload.contentType,
+        customMetadata: metadata,
+      ),
     );
 
     return ref.getDownloadURL();
   }
 
-  Future<Uint8List> _compressedFoodImageBytes(File imageFile) async {
+  Future<_PreparedFoodImageUpload> _prepareFoodImageUpload(
+    File imageFile, {
+    String? sourceMimeType,
+    String? sourceName,
+  }) async {
     final raw = await imageFile.readAsBytes();
     final decoded = img.decodeImage(raw);
     if (decoded == null) {
-      throw const FormatException('Image file could not be read.');
+      final contentType = _imageContentType(sourceMimeType, sourceName);
+      return _PreparedFoodImageUpload(
+        bytes: raw,
+        contentType: contentType,
+        fileName: 'main.${_extensionForContentType(contentType)}',
+      );
     }
 
     final oriented = img.bakeOrientation(decoded);
@@ -111,7 +129,11 @@ class AdminFoodLibraryService {
           );
 
     // resize before upload, keep storage not too big
-    return Uint8List.fromList(img.encodeJpg(resized, quality: 82));
+    return _PreparedFoodImageUpload(
+      bytes: Uint8List.fromList(img.encodeJpg(resized, quality: 82)),
+      contentType: 'image/jpeg',
+      fileName: 'main.jpg',
+    );
   }
 
   Future<void> _assertAdmin() async {
@@ -138,4 +160,51 @@ class AdminFoodLibraryService {
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
   }
+
+  String _imageContentType(String? mimeType, String? name) {
+    final normalizedMime = mimeType?.trim().toLowerCase();
+    if (_supportedImageContentTypes.contains(normalizedMime)) {
+      return normalizedMime!;
+    }
+
+    final extension = (name ?? '').split('.').last.trim().toLowerCase();
+    return switch (extension) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'heic' => 'image/heic',
+      'heif' => 'image/heif',
+      _ => 'image/jpeg',
+    };
+  }
+
+  String _extensionForContentType(String contentType) {
+    return switch (contentType) {
+      'image/png' => 'png',
+      'image/webp' => 'webp',
+      'image/heic' => 'heic',
+      'image/heif' => 'heif',
+      _ => 'jpg',
+    };
+  }
+
+  static const _supportedImageContentTypes = {
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+  };
+}
+
+class _PreparedFoodImageUpload {
+  final Uint8List bytes;
+  final String contentType;
+  final String fileName;
+
+  const _PreparedFoodImageUpload({
+    required this.bytes,
+    required this.contentType,
+    required this.fileName,
+  });
 }

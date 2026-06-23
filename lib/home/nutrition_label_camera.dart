@@ -8,6 +8,7 @@ import 'package:calscan/logic/nutrition_label_parser.dart';
 import 'package:calscan/logic/offline_write.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 
 const _kOrange = Color(0xFFFF7E00);
@@ -95,18 +96,16 @@ class _NutritionLabelCameraPageState extends State<NutritionLabelCameraPage> {
       setState(() => _isProcessing = true);
       final image = await controller.takePicture();
       // mlkit read text here, user confirm after this
-      final recognized = await _recognizer.processImage(
-        InputImage.fromFilePath(image.path),
-      );
-      final estimate = parseNutritionLabel(recognized.text);
+      final candidate = await _readBestLabel(File(image.path));
 
       if (!mounted) return;
       await Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => _NutritionLabelResultPage(
-            imageFile: File(image.path),
-            estimate: estimate,
+            imageFile: candidate.imageFile,
+            estimate: candidate.estimate,
+            usedCroppedImage: candidate.usedCroppedImage,
           ),
         ),
       );
@@ -117,6 +116,77 @@ class _NutritionLabelCameraPageState extends State<NutritionLabelCameraPage> {
       ).showSnackBar(SnackBar(content: Text('Could not read label: $e')));
     } finally {
       if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<_OcrCandidate> _readBestLabel(File imageFile) async {
+    final candidates = <_OcrCandidate>[];
+
+    final originalText = await _recognizer
+        .processImage(InputImage.fromFilePath(imageFile.path))
+        .then((text) => text.text);
+    candidates.add(
+      _OcrCandidate(
+        imageFile: imageFile,
+        estimate: parseNutritionLabel(originalText),
+        usedCroppedImage: false,
+      ),
+    );
+
+    final cropped = await _makeCenteredLabelCrop(imageFile);
+    if (cropped != null) {
+      final croppedText = await _recognizer
+          .processImage(InputImage.fromFilePath(cropped.path))
+          .then((text) => text.text);
+      candidates.add(
+        _OcrCandidate(
+          imageFile: cropped,
+          estimate: parseNutritionLabel(croppedText),
+          usedCroppedImage: true,
+        ),
+      );
+    }
+
+    candidates.sort((a, b) => b.score.compareTo(a.score));
+    return candidates.first;
+  }
+
+  Future<File?> _makeCenteredLabelCrop(File imageFile) async {
+    try {
+      final decoded = img.decodeImage(await imageFile.readAsBytes());
+      if (decoded == null) return null;
+
+      final source = img.bakeOrientation(decoded);
+      const frameAspect = 302 / 390;
+      var cropWidth = (source.width * 0.86).round();
+      var cropHeight = (cropWidth / frameAspect).round();
+      final maxHeight = (source.height * 0.88).round();
+
+      if (cropHeight > maxHeight) {
+        cropHeight = maxHeight;
+        cropWidth = (cropHeight * frameAspect).round();
+      }
+
+      cropWidth = cropWidth.clamp(1, source.width);
+      cropHeight = cropHeight.clamp(1, source.height);
+      final left = ((source.width - cropWidth) / 2).round();
+      final top = ((source.height - cropHeight) / 2).round();
+      final cropped = img.copyCrop(
+        source,
+        x: left,
+        y: top,
+        width: cropWidth,
+        height: cropHeight,
+      );
+
+      final output = File(
+        '${imageFile.parent.path}${Platform.pathSeparator}esti_ocr_${DateTime.now().microsecondsSinceEpoch}.jpg',
+      );
+      await output.writeAsBytes(img.encodeJpg(cropped, quality: 94));
+      return output;
+    } catch (e) {
+      debugPrint('OCR crop failed: $e');
+      return null;
     }
   }
 
@@ -238,7 +308,7 @@ class _NutritionLabelCameraPageState extends State<NutritionLabelCameraPage> {
             Text(
               _isProcessing
                   ? 'Reading label...'
-                  : 'Fit the nutrition panel inside the frame',
+                  : 'Center Calories/Energy and Serving Size',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
@@ -248,7 +318,7 @@ class _NutritionLabelCameraPageState extends State<NutritionLabelCameraPage> {
             ),
             const SizedBox(height: 6),
             Text(
-              'You can edit the name, calories, and serving before saving.',
+              'Fill the frame with the nutrition table, not ingredients or barcode.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.72),
@@ -363,13 +433,40 @@ class _Corner extends StatelessWidget {
   }
 }
 
+class _OcrCandidate {
+  final File imageFile;
+  final NutritionLabelEstimate estimate;
+  final bool usedCroppedImage;
+
+  const _OcrCandidate({
+    required this.imageFile,
+    required this.estimate,
+    required this.usedCroppedImage,
+  });
+
+  int get score {
+    var value = 0;
+    if (estimate.rawText.isNotEmpty) value += 1;
+    if (estimate.rawText.length > 30) value += 1;
+    if (estimate.productName.trim().isNotEmpty) value += 2;
+    if (estimate.calories != null) value += 5;
+    if (estimate.calorieBasis != CalorieBasis.unknown) value += 1;
+    if (estimate.servingSize != null) value += 2;
+    if (estimate.servingsPerPackage != null) value += 1;
+    if (usedCroppedImage && estimate.calories != null) value += 1;
+    return value;
+  }
+}
+
 class _NutritionLabelResultPage extends StatefulWidget {
   final File imageFile;
   final NutritionLabelEstimate estimate;
+  final bool usedCroppedImage;
 
   const _NutritionLabelResultPage({
     required this.imageFile,
     required this.estimate,
+    required this.usedCroppedImage,
   });
 
   @override
@@ -398,10 +495,9 @@ class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
     super.initState();
     final estimate = widget.estimate;
     _nameController = TextEditingController(text: estimate.productName);
+    final initialCalories = _initialCaloriesPerServing(estimate);
     _caloriesPerServingController = TextEditingController(
-      text: estimate.calories == null
-          ? ''
-          : estimate.calories!.round().toString(),
+      text: initialCalories == null ? '' : initialCalories.round().toString(),
     );
     _servingSizeController = TextEditingController(
       text: _formatNumber(estimate.servingSize),
@@ -444,6 +540,18 @@ class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
 
   double get _caloriesPerServing =>
       double.tryParse(_caloriesPerServingController.text.trim()) ?? 0;
+
+  double? _initialCaloriesPerServing(NutritionLabelEstimate estimate) {
+    final calories = estimate.calories;
+    final servingSize = estimate.servingSize;
+    if (calories == null) return null;
+    if (estimate.calorieBasis == CalorieBasis.per100g &&
+        servingSize != null &&
+        servingSize > 0) {
+      return calories * servingSize / 100;
+    }
+    return calories;
+  }
 
   double get _servingSize =>
       double.tryParse(_servingSizeController.text.trim()) ?? 0;
@@ -574,6 +682,8 @@ class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
           children: [
             _buildImagePreview(),
             const SizedBox(height: 14),
+            _buildScanStatusCard(theme),
+            const SizedBox(height: 14),
             _buildLivePreview(theme),
             const SizedBox(height: 16),
             _buildScannedFields(theme),
@@ -626,6 +736,165 @@ class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
         height: 190,
         width: double.infinity,
         fit: BoxFit.cover,
+      ),
+    );
+  }
+
+  Widget _buildScanStatusCard(ThemeData theme) {
+    final estimate = widget.estimate;
+    final rawText = estimate.rawText.trim();
+    final hasText = rawText.isNotEmpty;
+    final hasCalories = estimate.calories != null;
+    final color = hasCalories
+        ? const Color(0xFF059669)
+        : hasText
+        ? _kOrange
+        : theme.colorScheme.error;
+    final message = hasCalories
+        ? estimate.calorieBasis == CalorieBasis.per100g
+              ? 'Found per 100 g calories. Serving calories were estimated from serving size.'
+              : 'Text detected. Check the fields before saving.'
+        : hasText
+        ? 'Text was detected, but calories were not clear. Edit the fields manually.'
+        : 'No text detected. Retake with brighter light and fill the frame.';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  hasCalories
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.manage_search_rounded,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Scan result',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      message,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _scanChip(
+                theme,
+                icon: Icons.crop_free_rounded,
+                label: widget.usedCroppedImage ? 'Centered crop' : 'Full photo',
+              ),
+              _scanChip(
+                theme,
+                icon: Icons.text_fields_rounded,
+                label: hasText ? '${rawText.length} text chars' : 'No text',
+              ),
+              _scanChip(
+                theme,
+                icon: Icons.local_fire_department_outlined,
+                label: hasCalories ? 'Calories found' : 'Calories missing',
+              ),
+              if (hasCalories)
+                _scanChip(
+                  theme,
+                  icon: Icons.table_rows_rounded,
+                  label: estimate.calorieBasis.label,
+                ),
+            ],
+          ),
+          if (hasText) ...[
+            const SizedBox(height: 8),
+            Theme(
+              data: theme.copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(
+                  'View scanned text',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SelectableText(
+                      rawText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _scanChip(
+    ThemeData theme, {
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -719,6 +988,9 @@ class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
             label: 'Calories per Serving',
             suffix: 'kcal',
             icon: Icons.local_fire_department_outlined,
+            helperText: widget.estimate.calorieBasis == CalorieBasis.per100g
+                ? 'Converted from per 100 g. Check the serving size.'
+                : 'Use the per serving value from the label.',
             allowZero: true,
           ),
           const SizedBox(height: 12),

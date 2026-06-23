@@ -35,6 +35,27 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> updateUserProfileDetails({
+    required String name,
+    required double weight,
+    required double height,
+    required int age,
+    required String gender,
+    required String activityLevel,
+  }) async {
+    if (uid == null) return;
+
+    await _db.collection('users').doc(uid).set({
+      'name': name,
+      'weight': weight,
+      'height': height,
+      'age': age,
+      'gender': gender,
+      'activityLevel': activityLevel,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<DocumentSnapshot?> getUserProfile() async {
     // get user profile
     if (uid == null) return null;

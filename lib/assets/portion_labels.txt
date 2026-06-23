@@ -1,0 +1,7 @@
+curry_chicken
+fried_chicken
+fried_egg
+fried_vegetables
+plate
+rice
+tapau_box

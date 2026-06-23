@@ -7,6 +7,7 @@ import 'package:calscan/home/camera.dart';
 import 'package:calscan/home/nutrition_label_camera.dart';
 import 'package:calscan/home/nutrition_page.dart';
 import 'package:calscan/logic/firestore_service.dart';
+import 'package:calscan/logic/food_lookup_service.dart';
 import 'package:calscan/logic/offline_write.dart';
 import 'package:calscan/profile/profile_setup.dart';
 import 'package:calscan/theme/theme_controller.dart';
@@ -72,6 +73,7 @@ class _MainWrapperState extends State<MainWrapper> {
       _activityLevel = widget.activityLevel!;
       _goal = widget.goal!;
       _isAdmin = await FirestoreService().isCurrentUserAdmin();
+      await FoodLookupService().refreshRemoteEntries();
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -91,6 +93,7 @@ class _MainWrapperState extends State<MainWrapper> {
         _goal = data['goal'] ?? 'custom';
         // only show admin tools if firestore say admin
         _isAdmin = data['role'] == 'admin';
+        await FoodLookupService().refreshRemoteEntries();
         if (mounted) setState(() => _isLoading = false);
       } else {
         // Profile missing! Redirect back to setup

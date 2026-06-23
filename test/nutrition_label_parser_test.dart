@@ -65,4 +65,17 @@ Calories 20
     expect(result.servingSize, 5);
     expect(result.servingsPerPackage, 24);
   });
+
+  test('accepts zero kcal packaged drinks', () {
+    final result = parseNutritionLabel('''
+Diet Coke
+Nutrition Information
+Serving size 1 can (320ml)
+Calories 0kcal
+''');
+
+    expect(result.productName, 'Diet Coke');
+    expect(result.calories, 0);
+    expect(result.calorieBasis, CalorieBasis.perServing);
+  });
 }

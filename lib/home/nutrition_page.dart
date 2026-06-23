@@ -16,7 +16,7 @@ class _NutritionPageState extends State<NutritionPage> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   bool _showTiles = true;
-  late List<FoodEntry> _allFoods;
+  List<FoodEntry> _allFoods = [];
 
   static const _groupOrder = [
     'full_meals',
@@ -36,8 +36,19 @@ class _NutritionPageState extends State<NutritionPage> {
   @override
   void initState() {
     super.initState();
+    _syncFoods();
+    _refreshFoods();
+  }
+
+  void _syncFoods() {
     _allFoods = _lookup.allEntries.toList()
       ..sort((a, b) => a.displayName.compareTo(b.displayName));
+  }
+
+  Future<void> _refreshFoods() async {
+    await _lookup.refreshRemoteEntries();
+    if (!mounted) return;
+    setState(_syncFoods);
   }
 
   @override
@@ -86,6 +97,11 @@ class _NutritionPageState extends State<NutritionPage> {
             onPressed: () => setState(() => _showTiles = !_showTiles),
             icon: Icon(_showTiles ? Icons.view_list_rounded : Icons.grid_view),
           ),
+          IconButton(
+            tooltip: 'Refresh foods',
+            onPressed: _refreshFoods,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(64),
@@ -123,7 +139,11 @@ class _NutritionPageState extends State<NutritionPage> {
           ),
         ),
       ),
-      body: _query.isNotEmpty ? _buildSearchResults() : _buildGroupedList(),
+      body: RefreshIndicator(
+        color: const Color(0xFFFF7E00),
+        onRefresh: _refreshFoods,
+        child: _query.isNotEmpty ? _buildSearchResults() : _buildGroupedList(),
+      ),
     );
   }
 
@@ -278,6 +298,45 @@ String _foodGroupLabel(FoodEntry entry) =>
   }
 }
 
+class _FoodVisualBox extends StatelessWidget {
+  final FoodEntry entry;
+  final IconData icon;
+  final Color color;
+  final double width;
+  final double height;
+  final double iconSize;
+
+  const _FoodVisualBox({
+    required this.entry,
+    required this.icon,
+    required this.color,
+    required this.width,
+    required this.height,
+    this.iconSize = 24,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = entry.imageUrl;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: width,
+        height: height,
+        color: color.withValues(alpha: 0.12),
+        child: imageUrl == null
+            ? Icon(icon, color: color, size: iconSize)
+            : Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) =>
+                    Icon(Icons.broken_image_outlined, color: color),
+              ),
+      ),
+    );
+  }
+}
+
 class _FoodCard extends StatelessWidget {
   final FoodEntry entry;
 
@@ -301,14 +360,13 @@ class _FoodCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
+              _FoodVisualBox(
+                entry: entry,
+                icon: visual.icon,
+                color: catColor,
                 height: 74,
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  color: catColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(visual.icon, color: catColor, size: 34),
+                iconSize: 34,
               ),
               const SizedBox(height: 10),
               Expanded(
@@ -405,14 +463,12 @@ class _FoodListTile extends StatelessWidget {
       child: ListTile(
         onTap: () => _showDetail(context),
         minVerticalPadding: 12,
-        leading: Container(
+        leading: _FoodVisualBox(
+          entry: entry,
+          icon: visual.icon,
+          color: visual.color,
           width: 44,
           height: 44,
-          decoration: BoxDecoration(
-            color: visual.color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(visual.icon, color: visual.color),
         ),
         title: Text(
           entry.displayName,
@@ -548,6 +604,7 @@ class _FoodDetailSheetState extends State<_FoodDetailSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final macros = _macros;
+    final visual = _foodVisual(widget.entry);
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
       minChildSize: 0.4,
@@ -579,6 +636,15 @@ class _FoodDetailSheetState extends State<_FoodDetailSheet> {
                 controller: controller,
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                 children: [
+                  _FoodVisualBox(
+                    entry: widget.entry,
+                    icon: visual.icon,
+                    color: visual.color,
+                    width: double.infinity,
+                    height: 128,
+                    iconSize: 42,
+                  ),
+                  const SizedBox(height: 16),
                   // Title
                   Text(
                     widget.entry.displayName,

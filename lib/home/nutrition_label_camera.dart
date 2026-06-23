@@ -719,6 +719,7 @@ class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
             label: 'Calories per Serving',
             suffix: 'kcal',
             icon: Icons.local_fire_department_outlined,
+            allowZero: true,
           ),
           const SizedBox(height: 12),
           Row(
@@ -905,6 +906,7 @@ class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
     required String suffix,
     required IconData icon,
     String? helperText,
+    bool allowZero = false,
   }) {
     return TextFormField(
       controller: controller,
@@ -917,7 +919,8 @@ class _NutritionLabelResultPageState extends State<_NutritionLabelResultPage> {
       ),
       validator: (value) {
         final number = double.tryParse((value ?? '').trim());
-        if (number == null || number <= 0) return 'Enter number';
+        if (number == null) return 'Enter number';
+        if (number < 0 || (!allowZero && number == 0)) return 'Enter number';
         return null;
       },
     );

@@ -160,6 +160,38 @@
     }
   },
   "foods": {
+    "ABC": {
+      "display_name": "ABC",
+      "category": "whole_dish",
+      "base_calories": 330,
+      "cooking_modifier": 1.0,
+      "description": "Ais batu campur shaved ice dessert with syrup, jelly, beans, and milk",
+      "protein_g": 5,
+      "carbs_g": 62,
+      "fat_g": 7,
+      "portion_labels": {
+        "S": "Small bowl",
+        "M": "1 bowl",
+        "L": "Large bowl"
+      },
+      "archetype": "cup_drink"
+    },
+    "Acar_Timun": {
+      "display_name": "Acar Timun",
+      "category": "component",
+      "base_calories": 45,
+      "cooking_modifier": 1.0,
+      "description": "Pickled cucumber and vegetables, standard side serving",
+      "protein_g": 1,
+      "carbs_g": 9,
+      "fat_g": 1,
+      "portion_labels": {
+        "S": "Small spoon",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "bowl_side"
+    },
     "Apam_Balik": {
       "display_name": "Apam Balik",
       "category": "snack",
@@ -192,15 +224,15 @@
       },
       "archetype": "pcs_chicken"
     },
-    "Ayam_Goreng": {
-      "display_name": "Fried Chicken",
+    "Ayam_Goreng_Crispy": {
+      "display_name": "Crispy Fried Chicken",
       "category": "component",
-      "base_calories": 280,
-      "cooking_modifier": 1.25,
-      "description": "Fried chicken, deep fried",
+      "base_calories": 320,
+      "cooking_modifier": 1.3,
+      "description": "Crispy deep fried chicken with coating",
       "protein_g": 24,
-      "carbs_g": 8,
-      "fat_g": 16,
+      "carbs_g": 12,
+      "fat_g": 19,
       "portion_labels": {
         "S": "Small piece",
         "M": "1 piece",
@@ -223,6 +255,22 @@
         "L": "Large piece"
       },
       "archetype": "pcs_chicken"
+    },
+    "Ayam_Kari": {
+      "display_name": "Chicken Curry",
+      "category": "component",
+      "base_calories": 290,
+      "cooking_modifier": 1.15,
+      "description": "Chicken curry with gravy, standard serving",
+      "protein_g": 23,
+      "carbs_g": 8,
+      "fat_g": 17,
+      "portion_labels": {
+        "S": "Small bowl",
+        "M": "1 bowl",
+        "L": "Large bowl"
+      },
+      "archetype": "bowl_curry"
     },
     "Ayam_Masak_Kicap": {
       "display_name": "Ayam Masak Kicap",
@@ -335,22 +383,6 @@
         "L": "Large plate"
       },
       "archetype": "noodle_plate"
-    },
-    "Daging_Bakar": {
-      "display_name": "Grilled Beef",
-      "category": "component",
-      "base_calories": 250,
-      "cooking_modifier": 1.05,
-      "description": "Grilled beef",
-      "protein_g": 30,
-      "carbs_g": 0,
-      "fat_g": 14,
-      "portion_labels": {
-        "S": "Small piece",
-        "M": "1 piece",
-        "L": "Large piece"
-      },
-      "archetype": "pcs_chicken"
     },
     "Gulai_Ikan_Tongkol": {
       "display_name": "Gulai Ikan Tongkol",
@@ -496,6 +528,38 @@
       },
       "archetype": "bowl_side"
     },
+    "Kerabu_Ulam": {
+      "display_name": "Kerabu Ulam",
+      "category": "component",
+      "base_calories": 75,
+      "cooking_modifier": 1.0,
+      "description": "Mixed herb salad with light dressing, standard side serving",
+      "protein_g": 3,
+      "carbs_g": 10,
+      "fat_g": 3,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "bowl_side"
+    },
+    "Keropok_Lekor_keping": {
+      "display_name": "Keropok Lekor Keping",
+      "category": "snack",
+      "base_calories": 160,
+      "cooking_modifier": 1.2,
+      "description": "Sliced fried fish cracker, standard snack serving",
+      "protein_g": 7,
+      "carbs_g": 20,
+      "fat_g": 6,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "cup_snack"
+    },
     "Kway_Teow_Goreng": {
       "display_name": "Kway Teow Goreng",
       "category": "whole_dish",
@@ -553,22 +617,6 @@
       "protein_g": 15,
       "carbs_g": 75,
       "fat_g": 16,
-      "portion_labels": {
-        "S": "Half plate",
-        "M": "1 plate",
-        "L": "Large plate"
-      },
-      "archetype": "grain_rice"
-    },
-    "Nasi_Hujan_Panas": {
-      "display_name": "Nasi Hujan Panas",
-      "category": "whole_dish",
-      "base_calories": 450,
-      "cooking_modifier": 1.05,
-      "description": "Colourful festive rice, similar base to plain rice but with aromatics",
-      "protein_g": 10,
-      "carbs_g": 70,
-      "fat_g": 12,
       "portion_labels": {
         "S": "Half plate",
         "M": "1 plate",
@@ -774,6 +822,22 @@
       },
       "archetype": "spoon_condiment"
     },
+    "Sambal_Pedas": {
+      "display_name": "Sambal Pedas",
+      "category": "component",
+      "base_calories": 70,
+      "cooking_modifier": 1.1,
+      "description": "Spicy chili sambal, standard small serving",
+      "protein_g": 1,
+      "carbs_g": 9,
+      "fat_g": 4,
+      "portion_labels": {
+        "S": "Small spoon",
+        "M": "1 spoon",
+        "L": "Heaped spoon"
+      },
+      "archetype": "spoon_condiment"
+    },
     "Satay": {
       "display_name": "Satay",
       "category": "snack",
@@ -789,6 +853,38 @@
         "L": "7 sticks"
       },
       "archetype": "satay_sticks"
+    },
+    "Sayur_Goreng": {
+      "display_name": "Fried Vegetables",
+      "category": "component",
+      "base_calories": 95,
+      "cooking_modifier": 1.1,
+      "description": "Mixed fried vegetables, standard side serving",
+      "protein_g": 4,
+      "carbs_g": 10,
+      "fat_g": 5,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "bowl_side"
+    },
+    "Serunding_kelapa": {
+      "display_name": "Serunding Kelapa",
+      "category": "component",
+      "base_calories": 120,
+      "cooking_modifier": 1.1,
+      "description": "Spiced grated coconut topping, standard side serving",
+      "protein_g": 3,
+      "carbs_g": 8,
+      "fat_g": 9,
+      "portion_labels": {
+        "S": "Small spoon",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "spoon_condiment"
     },
     "Solok_Lada": {
       "display_name": "Solok Lada",
@@ -917,6 +1013,102 @@
       "protein_g": 3.6,
       "carbs_g": 0.6,
       "fat_g": 0.6,
+      "archetype": "pcs_small"
+    },
+    "fries": {
+      "display_name": "Fries",
+      "category": "snack",
+      "base_calories": 365,
+      "cooking_modifier": 1.2,
+      "description": "Deep fried potato fries, standard medium serving",
+      "protein_g": 4,
+      "carbs_g": 48,
+      "fat_g": 17,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "Medium serve",
+        "L": "Large serve"
+      },
+      "archetype": "cup_snack"
+    },
+    "keropok_lekor": {
+      "display_name": "Keropok Lekor",
+      "category": "snack",
+      "base_calories": 120,
+      "cooking_modifier": 1.15,
+      "description": "Fried fish sausage snack, per piece",
+      "protein_g": 6,
+      "carbs_g": 15,
+      "fat_g": 4,
+      "portion_labels": {
+        "S": "1 small",
+        "M": "1 piece",
+        "L": "2 pieces"
+      },
+      "archetype": "pcs_small"
+    },
+    "kobis": {
+      "display_name": "Cabbage",
+      "category": "component",
+      "base_calories": 25,
+      "cooking_modifier": 1.0,
+      "description": "Plain cabbage, standard side serving",
+      "protein_g": 1,
+      "carbs_g": 6,
+      "fat_g": 0,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "bowl_side"
+    },
+    "kobis_goreng": {
+      "display_name": "Fried Cabbage",
+      "category": "component",
+      "base_calories": 75,
+      "cooking_modifier": 1.1,
+      "description": "Stir fried cabbage, standard side serving",
+      "protein_g": 2,
+      "carbs_g": 8,
+      "fat_g": 4,
+      "portion_labels": {
+        "S": "Small serve",
+        "M": "1 serve",
+        "L": "Large serve"
+      },
+      "archetype": "bowl_side"
+    },
+    "sambal_Tumis": {
+      "display_name": "Sambal Tumis",
+      "category": "component",
+      "base_calories": 85,
+      "cooking_modifier": 1.15,
+      "description": "Cooked chili sambal with oil, standard small serving",
+      "protein_g": 1,
+      "carbs_g": 9,
+      "fat_g": 5,
+      "portion_labels": {
+        "S": "Small spoon",
+        "M": "1 spoon",
+        "L": "Heaped spoon"
+      },
+      "archetype": "spoon_condiment"
+    },
+    "tauhu_goreng": {
+      "display_name": "Fried Tofu",
+      "category": "component",
+      "base_calories": 90,
+      "cooking_modifier": 1.15,
+      "description": "Fried tofu, per piece",
+      "protein_g": 6,
+      "carbs_g": 3,
+      "fat_g": 6,
+      "portion_labels": {
+        "S": "1 small",
+        "M": "1 piece",
+        "L": "2 pieces"
+      },
       "archetype": "pcs_small"
     }
   }

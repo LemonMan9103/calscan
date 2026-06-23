@@ -33,4 +33,6 @@ flutter:
   assets:
     - lib/assets/esti_icon.png
     - lib/assets/best_float32.tflite
+    - lib/assets/portion_model_float32.tflite
+    - lib/assets/portion_labels.txt
     - lib/assets/food_lookup.json

@@ -19,10 +19,13 @@ class RecognitionService {
   static const int maxDetections = 12;
 
   static const List<String> labels = [
+    'ABC',
+    'Acar_Timun',
     'Apam_Balik',
     'Ayam_Bakar',
-    'Ayam_Goreng',
+    'Ayam_Goreng_Crispy',
     'Ayam_Goreng_Kunyit',
+    'Ayam_Kari',
     'Ayam_Masak_Kicap',
     'Ayam_Masak_Kurma',
     'Ayam_Masak_Lemak',
@@ -30,7 +33,6 @@ class RecognitionService {
     'Burger',
     'Cendol',
     'Char_Kway_Teow',
-    'Daging_Bakar',
     'Gulai_Ikan_Tongkol',
     'Ikan_Bilis_Goreng',
     'Ikan_Goreng',
@@ -40,11 +42,12 @@ class RecognitionService {
     'Kaya_Toast',
     'Keli_Goreng',
     'Kentang',
+    'Kerabu_Ulam',
+    'Keropok_Lekor_keping',
     'Kway_Teow_Goreng',
     'Mee_Goreng',
     'Nasi_Dagang',
     'Nasi_Goreng',
-    'Nasi_Hujan_Panas',
     'Nasi_Kerabu',
     'Nasi_Lemak',
     'Nasi_Minyak',
@@ -58,7 +61,10 @@ class RecognitionService {
     'Roti_Canai',
     'Sambal',
     'Sambal_Ikan_Bilis',
+    'Sambal_Pedas',
     'Satay',
+    'Sayur_Goreng',
+    'Serunding_kelapa',
     'Solok_Lada',
     'Steak',
     'Telur_Dadar',
@@ -68,12 +74,20 @@ class RecognitionService {
     'Tempe_Goreng',
     'Timun',
     'Udang',
+    'fries',
+    'keropok_lekor',
+    'kobis',
+    'kobis_goreng',
+    'sambal_Tumis',
+    'tauhu_goreng',
   ];
 
   bool get isLoaded => _interpreter != null;
   String? get loadError => _loadError;
 
   Future<void> loadModel() async {
+    if (_interpreter != null) return;
+
     try {
       final interpreter = await Interpreter.fromAsset(
         'lib/assets/best_float32.tflite',

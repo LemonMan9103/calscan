@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -7,6 +8,7 @@ import 'package:calscan/logic/firestore_service.dart';
 import 'package:calscan/logic/food_detection.dart';
 import 'package:calscan/logic/food_lookup_service.dart';
 import 'package:calscan/logic/offline_write.dart';
+import 'package:calscan/logic/portion_estimation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 
@@ -30,11 +32,16 @@ class _ScanResultPageState extends State<ScanResultPage>
     with SingleTickerProviderStateMixin {
   final FirestoreService _firestoreService = FirestoreService();
   final FoodLookupService _lookup = FoodLookupService();
+  final PortionEstimationService _portionService = PortionEstimationService();
 
   final Map<String, int> _portionIndices = {};
   final Map<String, int> _counts = {};
+  final Set<String> _manualPortionKeys = {};
   bool _isSaving = false;
   bool _saved = false;
+  bool _portionLoading = false;
+  PortionEstimate? _portionEstimate;
+  String? _portionMessage;
   late final List<FoodDetection> _detections;
   late final AnimationController _animationController;
   late final Animation<double> _fadeIn;
@@ -72,11 +79,15 @@ class _ScanResultPageState extends State<ScanResultPage>
           ),
         );
     _animationController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_estimatePortions());
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    unawaited(_portionService.close());
     super.dispose();
   }
 
@@ -95,6 +106,109 @@ class _ScanResultPageState extends State<ScanResultPage>
       detections,
       (labelKey) => _lookup.getCategory(labelKey) == 'whole_dish',
     );
+  }
+
+  Future<void> _estimatePortions() async {
+    if (!_detections.any((detection) => _shouldUsePortionModel(detection))) {
+      return;
+    }
+
+    setState(() {
+      _portionLoading = true;
+      _portionMessage = null;
+    });
+
+    try {
+      await _portionService.loadModel();
+      final estimate = await _portionService.estimate(widget.imageFile);
+      if (!mounted) return;
+
+      if (estimate == null || !estimate.hasUsableRatio) {
+        setState(() {
+          _portionLoading = false;
+          _portionMessage = 'Portion helper needs plate or tapau box.';
+        });
+        return;
+      }
+
+      _applyPortionEstimate(estimate);
+      setState(() {
+        _portionEstimate = estimate;
+        _portionLoading = false;
+        _portionMessage = 'Portion suggested. You can still adjust it.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      debugPrint('Portion estimate failed: $e');
+      setState(() {
+        _portionLoading = false;
+        _portionMessage = 'Portion helper skipped. Pick manually.';
+      });
+    }
+  }
+
+  bool _shouldUsePortionModel(FoodDetection detection) {
+    final arch = _lookup.getArchetype(detection.labelKey);
+    if (arch.isCounter) return false;
+
+    final entry = _lookup.lookup(detection.labelKey);
+    final category = entry?.category.toLowerCase() ?? '';
+    final archetype = arch.archetypeId.toLowerCase();
+    final key = detection.labelKey.toLowerCase();
+
+    return category == 'whole_dish' ||
+        archetype.contains('rice') ||
+        archetype.contains('plate') ||
+        archetype.contains('bowl') ||
+        key.contains('nasi') ||
+        key.contains('rice');
+  }
+
+  void _applyPortionEstimate(PortionEstimate estimate) {
+    // plate/tapau mask is ur reference for portion size only
+    for (final detection in _detections) {
+      final labelKey = detection.labelKey;
+      if (_manualPortionKeys.contains(labelKey)) continue;
+      if (!_shouldUsePortionModel(detection)) continue;
+
+      final arch = _lookup.getArchetype(labelKey);
+      final ratio = _ratioForDetection(detection, estimate);
+      final suggestion = PortionRules.classify(ratio);
+      final optionIndex = PortionRules.optionIndexForSuggestion(
+        suggestion: suggestion,
+        optionLabels: arch.options.map((option) => option.label).toList(),
+        fallbackIndex: _portionIndices[labelKey] ?? arch.defaultIndex,
+      );
+      _portionIndices[labelKey] = optionIndex;
+    }
+  }
+
+  double _ratioForDetection(FoodDetection detection, PortionEstimate estimate) {
+    final key = detection.labelKey.toLowerCase();
+    final display = _lookup.getDisplayName(detection.labelKey).toLowerCase();
+    final arch = _lookup.getArchetype(detection.labelKey).archetypeId;
+    final text = '$key $display $arch';
+
+    if (text.contains('rice') || text.contains('nasi')) {
+      return estimate.componentRatios['rice'] ?? estimate.totalFoodRatio;
+    }
+    if (text.contains('egg') || text.contains('telur')) {
+      return estimate.componentRatios['fried_egg'] ?? estimate.totalFoodRatio;
+    }
+    if (text.contains('kangkung') ||
+        text.contains('sayur') ||
+        text.contains('vegetable') ||
+        arch == 'bowl_side') {
+      return estimate.componentRatios['fried_vegetables'] ??
+          estimate.totalFoodRatio;
+    }
+    if (text.contains('ayam') ||
+        text.contains('chicken') ||
+        text.contains('curry')) {
+      return estimate.componentRatios['curry_chicken'] ??
+          estimate.totalFoodRatio;
+    }
+    return estimate.totalFoodRatio;
   }
 
   double get _totalCalories => _detections.fold(0.0, (total, detection) {
@@ -365,6 +479,10 @@ class _ScanResultPageState extends State<ScanResultPage>
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (_portionLoading || _portionMessage != null) ...[
+            const SizedBox(height: 10),
+            _buildPortionHelperPill(theme),
+          ],
           const SizedBox(height: 14),
           Expanded(
             child: ListView.separated(
@@ -519,7 +637,10 @@ class _ScanResultPageState extends State<ScanResultPage>
         return ChoiceChip(
           label: Text(arch.options[index].label),
           selected: selected,
-          onSelected: (_) => setState(() => _portionIndices[labelKey] = index),
+          onSelected: (_) => setState(() {
+            _manualPortionKeys.add(labelKey);
+            _portionIndices[labelKey] = index;
+          }),
           showCheckmark: false,
           selectedColor: _kOrange,
           backgroundColor: theme.colorScheme.surfaceContainerHighest,
@@ -740,6 +861,52 @@ class _ScanResultPageState extends State<ScanResultPage>
         ],
       ),
     );
+  }
+
+  Widget _buildPortionHelperPill(ThemeData theme) {
+    final estimate = _portionEstimate;
+    final message = _portionLoading
+        ? 'Estimating plate portion...'
+        : _portionMessage ?? 'Portion helper ready.';
+    final reference = estimate == null
+        ? null
+        : '${estimate.referenceLabel.replaceAll('_', ' ')} ${(_safeRatio(estimate.totalFoodRatio) * 100).round()}%';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Row(
+        children: [
+          _portionLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.donut_large, color: _kOrange, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              reference == null ? message : '$message ($reference)',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _safeRatio(double value) {
+    if (value.isNaN || value.isInfinite) return 0;
+    return value.clamp(0.0, 1.0).toDouble();
   }
 
   Widget _stepperButton({

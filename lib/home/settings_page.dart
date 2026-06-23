@@ -1,9 +1,11 @@
 import 'package:calscan/admin/admin_dashboard_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:calscan/profile/profile_setup.dart';
 import 'package:calscan/profile/login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:calscan/theme/theme_controller.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -75,6 +77,8 @@ class SettingsPage extends StatelessWidget {
             _buildProfileCard(context),
             const SizedBox(height: 16),
             _buildAppearanceCard(context),
+            const SizedBox(height: 16),
+            const _ScanImprovementCard(),
             const SizedBox(height: 16),
             if (isAdmin) ...[
               _buildAdminCard(context),
@@ -347,6 +351,137 @@ class SettingsPage extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, color: valueColor),
         ),
       ],
+    );
+  }
+}
+
+class _ScanImprovementCard extends StatefulWidget {
+  const _ScanImprovementCard();
+
+  @override
+  State<_ScanImprovementCard> createState() => _ScanImprovementCardState();
+}
+
+class _ScanImprovementCardState extends State<_ScanImprovementCard> {
+  static const _prefKey = 'scan_photo_improvement_opt_in';
+  bool _enabled = false;
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    var enabled = prefs.getBool(_prefKey) ?? false;
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .get();
+        final data = doc.data();
+        final remote = data?['scanPhotoImprovementOptIn'];
+        if (remote is bool) {
+          enabled = remote;
+          await prefs.setBool(_prefKey, enabled);
+        }
+      } catch (_) {
+        // use local setting if firestore not ready
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _enabled = enabled;
+      _loading = false;
+    });
+  }
+
+  Future<void> _setEnabled(bool value) async {
+    setState(() {
+      _enabled = value;
+      _saving = true;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefKey, value);
+
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          // permission for using ur scan photo to improve model
+          'scanPhotoImprovementOptIn': value,
+          'scanPhotoImprovementUpdatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not save setting: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.auto_awesome_motion_rounded,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Improve Scans',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  Text(
+                    'Allow Esti to use future scan photos for model improvement.',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_loading || _saving)
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Switch(value: _enabled, onChanged: _setEnabled),
+          ],
+        ),
+      ),
     );
   }
 }

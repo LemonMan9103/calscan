@@ -208,45 +208,47 @@ class _ModelStatusCard extends StatelessWidget {
                   .toList(),
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _toast(
-                      context,
-                      'Draft test runner will use sample photos later.',
-                    ),
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Test'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _toast(
-                      context,
-                      'Model upload will use Firebase Storage later.',
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _kOrange,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const Icon(Icons.upload_file_rounded),
-                    label: const Text('Upload'),
-                  ),
-                ),
-              ],
-            ),
+            _ModelNotice(theme: theme),
           ],
         ),
       ),
     );
   }
+}
 
-  void _toast(BuildContext context, String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+class _ModelNotice extends StatelessWidget {
+  final ThemeData theme;
+
+  const _ModelNotice({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _kOrange.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kOrange.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline_rounded, color: _kOrange, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Final sprint mode: this build uses bundled models. Test model changes by replacing app assets, running checks, then releasing a new APK.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -285,7 +287,7 @@ class _PublishWorkflowCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'This is the flow we should build before admin can replace live models.',
+              'This is the safe flow for a future dynamic model-update system.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -351,7 +353,7 @@ class _TrainingDataCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Good idea, but it needs consent. Later we can add an opt-in switch after failed scans, then save image + expected label for retraining review.',
+            'Settings now has an opt-in toggle. The next part is saving failed scan photos only when the user allowed it.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               height: 1.4,

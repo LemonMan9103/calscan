@@ -969,9 +969,7 @@ class _ScanResultPageState extends State<ScanResultPage>
   }
 
   String _confidenceLabel(double confidence) {
-    if (confidence >= 0.7) return 'High';
-    if (confidence >= 0.45) return 'Medium';
-    return 'Low';
+    return '${(confidence.clamp(0.0, 1.0) * 100).round()}%';
   }
 }
 

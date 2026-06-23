@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:calscan/logic/admin_food_library_service.dart';
 import 'package:calscan/logic/food_lookup_service.dart';
+import 'package:image_picker/image_picker.dart';
 
 const _kOrange = Color(0xFFFF7E00);
 
@@ -408,6 +411,7 @@ class _FoodEditorSheet extends StatefulWidget {
 class _FoodEditorSheetState extends State<_FoodEditorSheet> {
   final _formKey = GlobalKey<FormState>();
   final AdminFoodLibraryService _admin = AdminFoodLibraryService();
+  final ImagePicker _picker = ImagePicker();
 
   late final TextEditingController _keyController;
   late final TextEditingController _nameController;
@@ -422,6 +426,7 @@ class _FoodEditorSheetState extends State<_FoodEditorSheet> {
   late String _archetypeId;
   late bool _active;
   bool _saving = false;
+  bool _uploadingImage = false;
   bool _keyTouched = false;
 
   static const _categories = [
@@ -522,6 +527,46 @@ class _FoodEditorSheetState extends State<_FoodEditorSheet> {
         context,
       ).showSnackBar(SnackBar(content: Text('Could not save food: $e')));
     }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    if (_uploadingImage || _saving) return;
+
+    var key = _keyController.text.trim();
+    if (key.isEmpty && _nameController.text.trim().isNotEmpty) {
+      key = _admin.keyFromName(_nameController.text);
+      _keyController.text = key;
+    }
+    if (key.isEmpty || !RegExp(r'^[A-Za-z0-9_]+$').hasMatch(key)) {
+      _toast('Enter valid food key first.');
+      return;
+    }
+
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    if (!mounted) return;
+
+    setState(() => _uploadingImage = true);
+    try {
+      final url = await _admin.uploadFoodImage(
+        imageFile: File(picked.path),
+        foodKey: key,
+      );
+      if (!mounted) return;
+      _imageUrlController.text = url;
+      _toast('Image uploaded. Save food to keep it.');
+    } catch (e) {
+      if (!mounted) return;
+      _toast('Could not upload image: $e');
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -666,19 +711,7 @@ class _FoodEditorSheetState extends State<_FoodEditorSheet> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _imageUrlController,
-                      keyboardType: TextInputType.url,
-                      decoration: const InputDecoration(
-                        labelText: 'Image URL',
-                        helperText:
-                            'Use direct image URL or Firebase Storage URL.',
-                        hintText: 'Google image share links will not load',
-                        prefixIcon: Icon(Icons.image_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _ImageUrlPreview(url: _imageUrlController.text.trim()),
+                    _buildImageSection(theme),
                     const SizedBox(height: 12),
                     SwitchListTile(
                       value: _active,
@@ -719,7 +752,7 @@ class _FoodEditorSheetState extends State<_FoodEditorSheet> {
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: _saving ? null : _save,
+                    onPressed: _saving || _uploadingImage ? null : _save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _kOrange,
                       foregroundColor: Colors.white,
@@ -859,6 +892,106 @@ class _FoodEditorSheetState extends State<_FoodEditorSheet> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildImageSection(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.image_outlined, color: _kOrange),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Food image',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: _imageUrlController,
+            enabled: !_uploadingImage,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              labelText: 'Image URL',
+              helperText: 'Upload from phone or paste direct image URL.',
+              hintText: 'Google image share links will not load',
+              prefixIcon: Icon(Icons.link_rounded),
+            ),
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final uploadButton = OutlinedButton.icon(
+                onPressed: _uploadingImage || _saving
+                    ? null
+                    : _pickAndUploadImage,
+                icon: _uploadingImage
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_upload_outlined),
+                label: Text(_uploadingImage ? 'Uploading...' : 'Upload image'),
+              );
+              final clearButton = TextButton.icon(
+                onPressed:
+                    _uploadingImage || _imageUrlController.text.trim().isEmpty
+                    ? null
+                    : () => _imageUrlController.clear(),
+                icon: const Icon(Icons.close_rounded),
+                label: const Text('Clear'),
+              );
+
+              if (constraints.maxWidth < 380) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    uploadButton,
+                    const SizedBox(height: 6),
+                    clearButton,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: uploadButton),
+                  const SizedBox(width: 8),
+                  clearButton,
+                ],
+              );
+            },
+          ),
+          if (_uploadingImage) ...[
+            const SizedBox(height: 10),
+            const LinearProgressIndicator(color: _kOrange),
+          ],
+          const SizedBox(height: 10),
+          _ImageUrlPreview(url: _imageUrlController.text.trim()),
+          if (_imageUrlController.text.trim().isEmpty)
+            Text(
+              'Missing image will use the normal food icon fallback.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
